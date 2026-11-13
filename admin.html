@@ -59,6 +59,10 @@
         <option value="180">6 هەیڤ (180 ڕۆژ)</option>
         <option value="365">سالەک (365 ڕۆژ)</option>
       </select>
+      <select id="plan">
+        <option value="premium">💎 پرێمیۆم (هەمی بەش)</option>
+        <option value="basic">بنیاتی (کوردی + زارۆک)</option>
+      </select>
       <input id="count" type="number" min="1" max="100" value="1" placeholder="ژمارا کۆدان">
       <input id="note" placeholder="تێبینی (بۆ نموونە ناڤێ کڕیاری)">
     </div>
@@ -81,7 +85,7 @@
     <h2>📺 زێدەکرنا کەنالان</h2>
     <div class="row">
       <input id="chName" placeholder="ناڤێ کەنالی (بۆ نموونە KurdMax)">
-      <select id="chSec"><option value="kurdish">📺 کوردی</option><option value="sports">⚽ وەرزش</option></select>
+      <select id="chSec"><option value="kurdish">📺 کوردی</option><option value="kids">🧸 زارۆک</option><option value="movies">🎬 فیلم</option><option value="sports">⚽ وەرزش</option></select>
     </div>
     <input id="chUrl" placeholder="لینکێ پەخشێ (…m3u8)" dir="ltr">
     <input id="chLogo" placeholder="لینکێ لۆگۆیێ (بژارتەیی)" dir="ltr">
@@ -98,7 +102,7 @@
       <button class="btn" id="logoutBtn" style="flex:0">دەرکەفتن</button></div>
     <div class="stats" id="stats"></div>
     <div class="tablewrap"><table>
-      <thead><tr><th>کۆد</th><th>ماوە</th><th>ڕەوش</th><th>دوماهی</th><th>تێبینی</th><th></th></tr></thead>
+      <thead><tr><th>کۆد</th><th>ماوە</th><th>پلان</th><th>ڕەوش</th><th>دوماهی</th><th>تێبینی</th><th></th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
   </div>
@@ -157,7 +161,7 @@ auth.onAuthStateChanged(u => {
     unsubCh = db.collection("channels").onSnapshot(snap => {
       const esc = t => String(t||"").replace(/</g,"&lt;");
       $("chRows").innerHTML = snap.docs.map(d => { const c = d.data();
-        return `<tr><td>${esc(c.name)}</td><td>${c.section === "sports" ? "⚽ وەرزش" : "📺 کوردی"}</td>
+        return `<tr><td>${esc(c.name)}</td><td>${({sports:"⚽ وەرزش",kids:"🧸 زارۆک",movies:"🎬 فیلم"})[c.section] || "📺 کوردی"}</td>
           <td class="code" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.url)}</td>
           <td><button class="btn sm" data-del="${d.id}">ژێببە</button></td></tr>`; }).join("")
         || `<tr><td colspan="4" style="color:var(--muted)">هێشتا تە چ کەنال زێدە نەکرینە</td></tr>`;
@@ -177,17 +181,17 @@ function makeCode(){
 
 $("genBtn").onclick = async () => {
   const n = Math.min(100, Math.max(1, parseInt($("count").value) || 1));
-  const days = parseInt($("days").value), note = $("note").value.trim();
+  const days = parseInt($("days").value), note = $("note").value.trim(), plan = $("plan").value;
   const batch = db.batch(), codes = [];
   for (let i = 0; i < n; i++){
     const c = makeCode(); codes.push(c);
-    batch.set(db.collection("codes").doc(c), { days, note, deviceId: null, activatedAt: null, disabled: false,
+    batch.set(db.collection("codes").doc(c), { days, note, plan, deviceId: null, activatedAt: null, disabled: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   }
   $("genBtn").disabled = true;
   try {
     await batch.commit();
-    const label = days === 30 ? "هەیڤەک" : days === 180 ? "6 هەیڤ" : "سالەک";
+    const label = (days === 30 ? "هەیڤەک" : days === 180 ? "6 هەیڤ" : "سالەک") + (plan === "premium" ? " · پرێمیۆم" : " · بنیاتی");
     $("out").textContent = codes.join("\n"); $("out").style.display = "block";
     $("out").dataset.copy = codes.map(c => `${c}  (${label})`).join("\n");
     $("copyBtn").classList.remove("hidden"); $("note").value = "";
@@ -216,13 +220,14 @@ function render(){
     const [k, l] = status(c);
     const end = c.activatedAt ? new Date(c.activatedAt.toMillis() + c.days * DAY).toLocaleDateString("en-GB") : "—";
     const dur = c.days === 30 ? "هەیڤەک" : c.days === 180 ? "6 هەیڤ" : c.days === 365 ? "سالەک" : c.days + " ڕۆژ";
-    return `<tr><td class="code">${c.id}</td><td>${dur}</td><td><span class="tag ${k}">${l}</span></td><td>${end}</td>
+    return `<tr><td class="code">${c.id}</td><td>${dur}</td><td>${c.plan === "basic" ? "بنیاتی" : "💎 پرێمیۆم"}</td><td><span class="tag ${k}">${l}</span></td><td>${end}</td>
       <td>${(c.note||"").replace(/</g,"&lt;")}</td>
       <td style="white-space:nowrap">
         <button class="btn sm" data-a="toggle" data-id="${c.id}">${c.disabled ? "چالاک بکە" : "ڕابگرە"}</button>
+        <button class="btn sm" data-a="plan" data-id="${c.id}">${c.plan === "basic" ? "بکە پرێمیۆم" : "بکە بنیاتی"}</button>
         ${c.deviceId ? `<button class="btn sm" data-a="reset" data-id="${c.id}" title="بۆ کڕیارێ مۆبایلا خۆ گوهۆڕی">گوهۆڕینا ئامیری</button>` : ""}
       </td></tr>`;
-  }).join("") || `<tr><td colspan="6" style="color:var(--muted)">چ کۆد نینن</td></tr>`;
+  }).join("") || `<tr><td colspan="7" style="color:var(--muted)">چ کۆد نینن</td></tr>`;
 }
 $("search").addEventListener("input", render);
 $("plAdd").onclick = async () => {
@@ -251,6 +256,7 @@ $("rows").addEventListener("click", async e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
   const c = all.find(x => x.id === b.dataset.id), ref = db.collection("codes").doc(c.id);
   if (b.dataset.a === "toggle") await ref.update({ disabled: !c.disabled });
+  if (b.dataset.a === "plan") await ref.update({ plan: c.plan === "basic" ? "premium" : "basic" });
   // گوهۆڕینا ئامیری: ئامیرێ کەڤن دهێتە ژێبرن، دەم ژ نوو دەست پێ ناکەت (ڕۆژێن مایین دمینن)
   if (b.dataset.a === "reset"){
     const used = Math.floor((Date.now() - c.activatedAt.toMillis()) / DAY);
