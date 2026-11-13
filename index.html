@@ -102,6 +102,13 @@ main{padding:4px 0 12px}
 .spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp 1s linear infinite;margin:0 auto 12px}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+/* countries */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;padding:2px 14px 6px}
+.ctry{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--text);cursor:pointer;outline:none}
+.ctry .fl{font-size:34px;line-height:1}
+.ctry .cn{font-size:12px;font-weight:700;text-align:center;line-height:1.4}
+.ctry:focus-visible,.ctry.kf{transform:scale(1.06);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent)}
+@media(min-width:1100px){.cgrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.ctry .fl{font-size:44px}}
 /* locked */
 .locked{margin:16px 14px;padding:28px 20px;border-radius:22px;text-align:center;background:radial-gradient(100% 120% at 50% 0%,#3a2a05 0%,var(--card) 70%);border:1px solid #4a3a10}
 .locked .big{font-size:42px;margin-bottom:8px}
@@ -251,7 +258,21 @@ const SECTIONS = [
   { id:"kids",    label:"زارۆک",  icon:"🧸", plan:"basic",   lists:[IPTV+"categories/kids.m3u", IPTV+"categories/animation.m3u"], match:/kid|animation|child|cartoon/i, h:["#7a2a6a","#2a4a8a"] },
   { id:"movies",  label:"فیلم",   icon:"🎬", plan:"premium", lists:[IPTV+"categories/movies.m3u", IPTV+"categories/series.m3u"], match:/movie|series|film|cinema|drama/i, h:["#5a1a1a","#2a1a5a"] },
   { id:"sports",  label:"وەرزش",  icon:"⚽", plan:"premium", lists:[IPTV+"categories/sports.m3u"], match:/sport/i, h:["#0f5a35","#5a2a0a"] },
+  { id:"world",   label:"وەڵات",  icon:"🌍", plan:"premium", lists:[], h:["#1a4a6a","#4a2a6a"] },
 ];
+// هەمی وەڵات (ISO). ئێکەم: عێراق، تورکیا، سووریا، ئێران، پاشی وەڵاتێن نێزیک، پاشی هەمی یێن دی ب ڕێزا ئەلفبێ
+const COUNTRY_TOP = ["IQ","TR","SY","IR","AE","SA","KW","QA","BH","OM","JO","LB","EG","DE","SE","NL","GB","FR","US","AT","BE","CH","DK","NO","FI","IT","ES","GR","AM","AZ","GE","RU","UA","CA","AU"];
+const COUNTRY_ALL = "AD AE AF AG AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FO FR GA GB GD GE GF GH GL GM GN GP GQ GR GT GU GW GY HK HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MK ML MM MN MO MQ MR MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NZ OM PA PE PF PG PH PK PL PR PS PT PY QA RE RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TD TG TH TJ TL TM TN TO TR TT TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS XK YE YT ZA ZM ZW".split(" ");
+const KU_NAMES = { IQ:"عێراق / کوردستان", TR:"تورکیا", SY:"سووریا", IR:"ئێران", AE:"ئیمارات", SA:"سعوودیە", KW:"کوەیت", QA:"قەتەر", BH:"بەحرەین", OM:"عومان",
+  JO:"ئوردن", LB:"لوبنان", EG:"میسر", DE:"ئەلمانیا", SE:"سوید", NL:"هۆلەندا", GB:"بەریتانیا", FR:"فەرەنسا", US:"ئەمریکا", AT:"نەمسا", BE:"بەلجیکا",
+  CH:"سویسرا", DK:"دانیمارک", NO:"نەرویج", FI:"فینلەندا", IT:"ئیتالیا", ES:"ئیسپانیا", GR:"یونان", AM:"ئەرمینیا", AZ:"ئازەربایجان", GE:"جۆرجیا",
+  RU:"ڕووسیا", UA:"ئۆکرانیا", CA:"کەنەدا", AU:"ئوسترالیا", PS:"فەلەستین", MA:"مەغریب", DZ:"جەزائیر", TN:"تونس", LY:"لیبیا", YE:"یەمەن", SD:"سوودان",
+  AF:"ئەفغانستان", PK:"پاکستان", IN:"هندستان", CN:"چین", JP:"ژاپۆن", KR:"کۆریا", BR:"بەڕازیل", AR:"ئەرجەنتین", MX:"مەکسیک", PL:"پۆلەندا", PT:"پورتوگال" };
+let dnames = null; try { dnames = new Intl.DisplayNames(["ckb","ar","en"], { type:"region" }); } catch(e) {}
+const cName = c => KU_NAMES[c] || (dnames ? (dnames.of(c) || c) : c);
+const flag = c => c === "XK" ? "🇽🇰" : String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0)));
+const countryFile = c => IPTV + "countries/" + (c === "GB" ? "uk" : c.toLowerCase()) + ".m3u";
+let worldCountry = null;
 const GROUP_KU = { News:"هەوال", Kids:"زارۆک", Animation:"کارتۆن", Music:"مۆزیک", Entertainment:"کەیف و خۆشی", Sports:"وەرزش",
   Religious:"ئایینی", Culture:"کولتوور", Movies:"فیلم", Series:"زنجیرە", General:"گشتی", Undefined:"گشتی", "Backup streams":"لینکێن یەدەگ",
   Education:"پەروەردە", Documentary:"دۆکیومێنتاری", Family:"خێزانی", Lifestyle:"ژیان", Legislative:"پەرلەمان", Business:"ئابووری",
@@ -306,7 +327,7 @@ function sortChannels(){
 /* ================= sections ================= */
 const SEC = id => SECTIONS.find(s => s.id === id);
 const allowed = s => plan === "premium" || SEC(s).plan === "basic";
-const inSec = (c, s = section) => c.sec === s || (s !== "kurdish" && c.sec === "kurdish" && SEC(s).match && SEC(s).match.test(c.group));
+const inSec = (c, s = section) => s === "world" ? (!!worldCountry && c.sec === "w:" + worldCountry) : c.sec === s || (s !== "kurdish" && c.sec === "kurdish" && SEC(s).match && SEC(s).match.test(c.group));
 
 async function ensureSection(s){
   if (loaded.has(s)) return;
@@ -324,7 +345,7 @@ function renderNav(){
 
 async function switchSection(s){
   if (s === "menu"){ openMenu(); return; }
-  section = s; filter = "all"; $("search").value = "";
+  section = s; filter = "all"; $("search").value = ""; if (s === "world") worldCountry = null;
   renderNav();
   window.scrollTo({ top: 0 });
   $("search").parentElement.classList.toggle("hide", !allowed(s));
@@ -335,6 +356,30 @@ async function switchSection(s){
     await ensureSection(s);
   }
   if (section === s){ renderChips(); render(); }
+}
+async function openCountry(code){
+  worldCountry = code; filter = "all"; $("search").value = ""; store.set("lastCountry", code);
+  window.scrollTo({ top: 0 });
+  const key = "w:" + code;
+  if (!loaded.has(key)){
+    loaded.add(key);
+    $("chips").innerHTML = "";
+    $("view").innerHTML = `<div class="state"><div class="spinner"></div>${flag(code)} کەنالێن ${esc(cName(code))} دهێنە بارکرن…</div>`;
+    await load([countryFile(code)], key);
+  }
+  if (section === "world" && worldCountry === code){ renderChips(); render(); }
+}
+function renderCountries(q){
+  $("chips").innerHTML = "";
+  const last = store.get("lastCountry", null);
+  const rest = COUNTRY_ALL.filter(c => !COUNTRY_TOP.includes(c)).sort((a,b) => cName(a).localeCompare(cName(b)));
+  let list = [...COUNTRY_TOP, ...rest];
+  if (q) list = list.filter(c => cName(c).toLowerCase().includes(q) || c.toLowerCase() === q || (dnames && false));
+  if (!list.length){ $("view").innerHTML = `<div class="state">چ وەڵات نەهاتنە دیتن.</div>`; return; }
+  const tile = c => `<button class="ctry" data-c="${c}" tabindex="0"><span class="fl">${flag(c)}</span><span class="cn">${esc(cName(c))}</span></button>`;
+  $("view").innerHTML = (last && !q ? `<div class="rowhead"><h3>🕘 دوماهیک وەڵات</h3></div><div class="cgrid">${tile(last)}</div>` : "")
+    + `<div class="rowhead"><h3>🌍 هەڵبژارتنا وەڵاتی</h3><span style="font-size:12px;color:var(--muted)">${list.length} وەڵات</span></div>`
+    + `<div class="cgrid">${list.map(tile).join("")}</div>`;
 }
 
 function renderLocked(){
@@ -351,10 +396,11 @@ function renderLocked(){
 function secChannels(){ const l = channels.filter(c => inSec(c)); return l.filter(c => !isBroken(c)).concat(l.filter(isBroken)); }
 
 function renderChips(){
+  if (section === "world" && !worldCountry){ $("chips").innerHTML = ""; return; }
   const list = secChannels();
   const groups = [...new Set(list.map(c => c.group))].sort((a,b) => (a==="Backup streams") - (b==="Backup streams") || gName(a).localeCompare(gName(b)));
   const qs = ["4K","HD","SD"].filter(x => list.some(c => c.q === x));
-  const chips = [["all","🏠 سەرەکی"], ["fav","⭐ دلخواز"], ...qs.map(x => ["q:"+x, x === "4K" ? "🔷 4K" : x === "HD" ? "🔶 HD" : "▫️ SD"]), ...groups.map(g => ["g:"+g, gName(g)])];
+  const chips = [...(section === "world" && worldCountry ? [["back", "🌍 " + flag(worldCountry) + " " + cName(worldCountry) + " ✕"]] : []), ["all","🏠 سەرەکی"], ["fav","⭐ دلخواز"], ...qs.map(x => ["q:"+x, x === "4K" ? "🔷 4K" : x === "HD" ? "🔶 HD" : "▫️ SD"]), ...groups.map(g => ["g:"+g, gName(g)])];
   $("chips").innerHTML = chips.map(([k,l]) => `<button class="chip ${filter === k ? "on" : ""}" data-k="${esc(k)}" tabindex="0">${esc(l)}</button>`).join("");
 }
 
@@ -379,8 +425,11 @@ function rowHTML(title, list, key){
 function render(){
   if (!allowed(section)) return renderLocked();
   const q = $("search").value.toLowerCase().trim();
+  if (section === "world" && !worldCountry) return renderCountries(q);
   const list = secChannels();
-  if (!list.length){ $("view").innerHTML = `<div class="state">😕 نوکە چ کەنال نەهاتنە دیتن.<br>پێوەندیا ئینتەرنێتێ کۆنترۆل بکە.</div>`; return; }
+  if (!list.length){ $("view").innerHTML = section === "world"
+      ? `<div class="state">${flag(worldCountry)} بۆ ${esc(cName(worldCountry))} نوکە چ کەنالێن گشتی نەهاتنە دیتن.<br><button class="chip" data-k="back" tabindex="0" style="margin-top:12px">🌍 وەڵاتەکێ دی هەلبژێرە</button></div>`
+      : `<div class="state">😕 نوکە چ کەنال نەهاتنە دیتن.<br>پێوەندیا ئینتەرنێتێ کۆنترۆل بکە.</div>`; return; }
 
   if (filter === "all" && !q){
     // ---- home: hero + rows ----
@@ -391,7 +440,7 @@ function render(){
     let html = `<div class="hero" id="hero" data-i="${channels.indexOf(hero)}" tabindex="0" style="--h1:${sc.h[0]};--h2:${sc.h[1]}">
         <div class="hlogo">${hero.logo ? `<img src="${esc(hero.logo)}" alt="" referrerpolicy="no-referrer">` : `<div class="ph">${esc(hero.name.charAt(0))}</div>`}</div>
         <div><div class="tag">${rec[0] ? "▶ بەردەوام بە" : "⭐ پێشنیار"}</div><h2>${esc(hero.name)}</h2>
-        <div class="hmeta">${esc(gName(hero.group))} · ${hero.q} · ${list.length} کەنال د ڤی بەشی دا</div>
+        <div class="hmeta">${section === "world" ? flag(worldCountry) + " " + esc(cName(worldCountry)) + " · " : ""}${esc(gName(hero.group))} · ${hero.q} · ${list.length} کەنال</div>
         <button class="play" tabindex="-1">▶ سەیر بکە</button></div></div>`;
     html += rowHTML("🕘 دوماهیک کەنالێن تە دیتین", rec, null);
     html += rowHTML("⭐ دلخوازێن تە", fv, "fav");
@@ -563,7 +612,9 @@ document.addEventListener("click", e => {
     favs.has(c.url) ? favs.delete(c.url) : favs.add(c.url); store.set("favs", [...favs]);
     f.classList.toggle("on", favs.has(c.url)); f.textContent = favs.has(c.url) ? "★" : "☆"; return; }
   const ch = e.target.closest(".ch[data-i], #hero"); if (ch){ play(channels[ch.dataset.i]); return; }
+  const ct = e.target.closest(".ctry[data-c]"); if (ct){ openCountry(ct.dataset.c); return; }
   const k = e.target.closest(".chip[data-k], .see[data-k]");
+  if (k && k.dataset.k === "back"){ worldCountry = null; filter = "all"; $("search").value = ""; window.scrollTo({ top: 0 }); render(); return; }
   if (k){ filter = k.dataset.k; renderChips(); render(); if (k.classList.contains("see")) window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   const n = e.target.closest(".nav-item"); if (n){ switchSection(n.dataset.s); return; }
 });
@@ -579,7 +630,7 @@ $("kidsExitBtn").onclick = exitKidsFlow;
 var isTV = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|Android TV|AFT|BRAVIA|GoogleTV|CrKey|HbbTV/i.test(navigator.userAgent);
 function focusables(){
   const root = modalOpen() ? $("mdl") : document;
-  return [...root.querySelectorAll(modalOpen() ? "input,button,a.opt,a.btn" : ".ch,.chip,.see,.nav-item,#hero,#search,.icon-btn:not(.hide),.pbtn")].filter(el => el.offsetParent || el.closest("nav"));
+  return [...root.querySelectorAll(modalOpen() ? "input,button,a.opt,a.btn" : ".ch,.ctry,.chip,.see,.nav-item,#hero,#search,.icon-btn:not(.hide),.pbtn,#msg .btn")].filter(el => el.offsetParent || el.closest("nav"));
 }
 function moveFocus(dir){
   const items = focusables(), cur = document.activeElement;
@@ -603,7 +654,8 @@ document.addEventListener("keydown", e => {
     e.preventDefault();
     if (modalOpen()) return closeModal();
     if ($("playerWrap").classList.contains("on")) { closePlayer(); return; }
-    if (filter !== "all" || $("search").value){ filter = "all"; $("search").value = ""; renderChips(); render(); }
+    if (filter !== "all" || $("search").value){ filter = "all"; $("search").value = ""; if (section !== "world" || worldCountry) renderChips(); render(); return; }
+    if (section === "world" && worldCountry){ worldCountry = null; render(); }
     return;
   }
   // channel up / down (TV remotes, PageUp/PageDown)
@@ -613,7 +665,7 @@ document.addEventListener("keydown", e => {
   if (typing && (k === 37 || k === 39)) return;
   const map = { 37:"left", 38:"up", 39:"right", 40:"down" };
   if (map[k]){ e.preventDefault(); moveFocus(map[k]); return; }
-  if (k === 13 && a && a.matches(".ch,.chip,.see,.nav-item,#hero,.opt,.pbtn,.icon-btn,.btn")){ e.preventDefault(); a.click(); }
+  if (k === 13 && a && a.matches(".ch,.ctry,.chip,.see,.nav-item,#hero,.opt,.pbtn,.icon-btn,.btn")){ e.preventDefault(); a.click(); }
 });
 
 /* ================= Firebase / activation ================= */
