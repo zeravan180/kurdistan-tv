@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بەڕێوەبرنا کۆدان</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{--bg:#0f1115;--card:#1a1d24;--line:#2a2f3a;--text:#eef0f4;--muted:#9aa3b2;--accent:#f5b400;--red:#e2453c;--green:#2fa84f}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;padding:16px;max-width:900px;margin:auto}
+  h1{font-size:22px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  h2{font-size:16px;margin-bottom:12px}
+  input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px;font-family:inherit;margin-bottom:10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:120px}
+  .btn{background:var(--line);color:var(--text);border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn.acc{background:var(--accent);color:#111;font-weight:600}
+  .btn.sm{padding:5px 9px;font-size:12px}
+  #out{direction:ltr;font-family:ui-monospace,monospace;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px;white-space:pre;margin-top:10px;display:none;font-size:15px;line-height:1.8}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{flex:1;min-width:90px;background:var(--bg);border-radius:10px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+  th{color:var(--muted);font-weight:500}
+  td.code{direction:ltr;font-family:ui-monospace,monospace;text-align:left;white-space:nowrap}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
+  .new{background:#1f3550;color:#8cc4ff}.active{background:#173d24;color:#7be39a}.expired{background:#3d2a12;color:#ffc56b}.disabled{background:#3d1717;color:#ff8a80}
+  #err{color:#ff7a70;font-size:14px;min-height:20px}
+  .hidden{display:none}
+  .tablewrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<h1>🔑 بەڕێوەبرنا کۆدێن چالاککرنێ</h1>
+
+<div class="card" id="loginCard">
+  <h2>چوونەژوور (ب تنێ بۆ خودانی)</h2>
+  <input id="email" type="email" placeholder="ئیمەیل" dir="ltr">
+  <input id="pass" type="password" placeholder="پەیڤا نهێنی" dir="ltr">
+  <button class="btn acc" id="loginBtn">چوونەژوور</button>
+  <div id="err"></div>
+</div>
+
+<div id="panel" class="hidden">
+  <div class="card">
+    <h2>➕ دروستکرنا کۆدێن نوو</h2>
+    <div class="row">
+      <select id="days">
+        <option value="30">هەیڤەک (30 ڕۆژ)</option>
+        <option value="180">6 هەیڤ (180 ڕۆژ)</option>
+        <option value="365">سالەک (365 ڕۆژ)</option>
+      </select>
+      <input id="count" type="number" min="1" max="100" value="1" placeholder="ژمارا کۆدان">
+      <input id="note" placeholder="تێبینی (بۆ نموونە ناڤێ کڕیاری)">
+    </div>
+    <button class="btn acc" id="genBtn">دروست بکە</button>
+    <button class="btn hidden" id="copyBtn">کۆپی بکە</button>
+    <div id="out"></div>
+  </div>
+
+  <div class="card">
+    <h2>📃 لیستێن کەنالان (m3u) — بۆ هەمی کڕیاران</h2>
+    <input id="plUrl" placeholder="https://…/playlist.m3u" dir="ltr">
+    <button class="btn acc" id="plAdd">زێدە بکە</button>
+    <div class="tablewrap" style="margin-top:12px"><table>
+      <thead><tr><th>لینکێ لیستێ</th><th></th></tr></thead>
+      <tbody id="plRows"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>📺 زێدەکرنا کەنالان</h2>
+    <div class="row">
+      <input id="chName" placeholder="ناڤێ کەنالی (بۆ نموونە KurdMax)">
+      <select id="chSec"><option value="kurdish">📺 کوردی</option><option value="sports">⚽ وەرزش</option></select>
+    </div>
+    <input id="chUrl" placeholder="لینکێ پەخشێ (…m3u8)" dir="ltr">
+    <input id="chLogo" placeholder="لینکێ لۆگۆیێ (بژارتەیی)" dir="ltr">
+    <button class="btn acc" id="chAdd">زێدە بکە</button>
+    <div class="tablewrap" style="margin-top:12px"><table>
+      <thead><tr><th>کەنال</th><th>بەش</th><th>لینک</th><th></th></tr></thead>
+      <tbody id="chRows"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="align-items:center;margin-bottom:10px"><h2 style="margin:0">📋 هەمی کۆد</h2>
+      <input id="search" placeholder="🔍 گەڕیان (کۆد یان تێبینی)" style="margin:0">
+      <button class="btn" id="logoutBtn" style="flex:0">دەرکەفتن</button></div>
+    <div class="stats" id="stats"></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>کۆد</th><th>ماوە</th><th>ڕەوش</th><th>دوماهی</th><th>تێبینی</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script>
+// 👇 هەمان زانیاریێن Firebase یێن د kurdistan-tv.html دا
+const firebaseConfig = {
+  apiKey: "AIzaSyB7wpB9v_HYHKXHk2buQo6-bktnAFZld7A",
+  authDomain: "kurdistan-tv-3ce5e.firebaseapp.com",
+  projectId: "kurdistan-tv-3ce5e",
+  storageBucket: "kurdistan-tv-3ce5e.firebasestorage.app",
+  messagingSenderId: "821837021676",
+  appId: "1:821837021676:web:83ea8ed6ccb9f55f27c0c9"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.firestore();
+const $ = id => document.getElementById(id);
+const DAY = 864e5;
+let all = [], unsub = null, unsubCh = null, unsubPl = null;
+
+$("loginBtn").onclick = async () => {
+  $("err").textContent = "⏳";
+  try { await auth.signInWithEmailAndPassword($("email").value.trim(), $("pass").value); $("err").textContent = ""; }
+  catch(e){
+    const c = e.code || "";
+    const m = {
+      "auth/invalid-credential":"❌ ئیمەیل یان پەیڤا نهێنی خەلەتە",
+      "auth/wrong-password":"❌ پەیڤا نهێنی خەلەتە",
+      "auth/user-not-found":"❌ ئەڤ ئیمەیلە نەهاتیە تومارکرن",
+      "auth/invalid-api-key":"⚠️ apiKey خەلەتە (کێشە د firebaseConfig دا یە)",
+      "auth/api-key-not-valid.-please-pass-a-valid-api-key.":"⚠️ apiKey خەلەتە (کێشە د firebaseConfig دا یە)",
+      "auth/unauthorized-domain":"⚠️ ئەڤ دۆمەینە ل Firebase نەهاتیە زێدەکرن",
+      "auth/too-many-requests":"⏳ گەلەک جاران هاتە تاقیکرن. پشتی چەند خولەکان دیسا تاقی بکە",
+      "auth/network-request-failed":"⚠️ ئینتەرنێت نینە"
+    };
+    $("err").textContent = (m[c] || "❌ خەلەتی") + "  [" + c + "]";
+  }
+};
+$("pass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
+$("logoutBtn").onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(u => {
+  $("loginCard").classList.toggle("hidden", !!u);
+  $("panel").classList.toggle("hidden", !u);
+  if (unsub){ unsub(); unsub = null; }
+  if (unsubCh){ unsubCh(); unsubCh = null; }
+  if (unsubPl){ unsubPl(); unsubPl = null; }
+  if (u){
+    unsubPl = db.collection("playlists").onSnapshot(snap => {
+      const esc = t => String(t||"").replace(/</g,"&lt;");
+      $("plRows").innerHTML = snap.docs.map(d => `<tr><td class="code" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(d.data().url)}</td>
+        <td><button class="btn sm" data-pldel="${d.id}">ژێببە</button></td></tr>`).join("")
+        || `<tr><td colspan="2" style="color:var(--muted)">هێشتا چ لیست نینن</td></tr>`;
+    }, err => { $("plRows").innerHTML = `<tr><td colspan="2" style="color:#ff7a70">❌ ڕێپێدان نینە. Rules یێن نوو دانێ.</td></tr>`; });
+    unsubCh = db.collection("channels").onSnapshot(snap => {
+      const esc = t => String(t||"").replace(/</g,"&lt;");
+      $("chRows").innerHTML = snap.docs.map(d => { const c = d.data();
+        return `<tr><td>${esc(c.name)}</td><td>${c.section === "sports" ? "⚽ وەرزش" : "📺 کوردی"}</td>
+          <td class="code" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.url)}</td>
+          <td><button class="btn sm" data-del="${d.id}">ژێببە</button></td></tr>`; }).join("")
+        || `<tr><td colspan="4" style="color:var(--muted)">هێشتا تە چ کەنال زێدە نەکرینە</td></tr>`;
+    }, err => { $("chRows").innerHTML = `<tr><td colspan="4" style="color:#ff7a70">❌ ڕێپێدان نینە. Rules یێن نوو دانێ.</td></tr>`; });
+    unsub = db.collection("codes").orderBy("createdAt", "desc").limit(1000).onSnapshot(
+      snap => { all = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+      err => { $("rows").innerHTML = `<tr><td colspan="6" style="color:#ff7a70">❌ ڕێپێدان نینە. ئیمەیلا د Rules دا کۆنترۆل بکە.</td></tr>`; });
+  }
+});
+
+function makeCode(){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = new Uint32Array(12);
+  crypto.getRandomValues(b);
+  const s = [...b].map(x => A[x % A.length]).join("");
+  return s.slice(0,4) + "-" + s.slice(4,8) + "-" + s.slice(8,12);
+}
+
+$("genBtn").onclick = async () => {
+  const n = Math.min(100, Math.max(1, parseInt($("count").value) || 1));
+  const days = parseInt($("days").value), note = $("note").value.trim();
+  const batch = db.batch(), codes = [];
+  for (let i = 0; i < n; i++){
+    const c = makeCode(); codes.push(c);
+    batch.set(db.collection("codes").doc(c), { days, note, deviceId: null, activatedAt: null, disabled: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  }
+  $("genBtn").disabled = true;
+  try {
+    await batch.commit();
+    const label = days === 30 ? "هەیڤەک" : days === 180 ? "6 هەیڤ" : "سالەک";
+    $("out").textContent = codes.join("\n"); $("out").style.display = "block";
+    $("out").dataset.copy = codes.map(c => `${c}  (${label})`).join("\n");
+    $("copyBtn").classList.remove("hidden"); $("note").value = "";
+  } catch(e){ alertMsg("❌ کۆد دروست نەبوون: " + e.message); }
+  finally { $("genBtn").disabled = false; }
+};
+$("copyBtn").onclick = async () => {
+  try { await navigator.clipboard.writeText($("out").dataset.copy); $("copyBtn").textContent = "✓ هاتە کۆپیکرن"; }
+  catch(e){ $("copyBtn").textContent = "کۆدان هەلبژێرە و کۆپی بکە"; }
+  setTimeout(() => $("copyBtn").textContent = "کۆپی بکە", 1500);
+};
+
+function status(c){
+  if (c.disabled) return ["disabled", "ڕاگرتی"];
+  if (!c.deviceId || !c.activatedAt) return ["new", "نوو"];
+  return Date.now() > c.activatedAt.toMillis() + c.days * DAY ? ["expired", "ب دوماهی هاتی"] : ["active", "چالاک"];
+}
+function render(){
+  const q = $("search").value.toUpperCase().trim();
+  const st = { new:0, active:0, expired:0, disabled:0 };
+  all.forEach(c => st[status(c)[0]]++);
+  $("stats").innerHTML = [["new","نوو"],["active","چالاک"],["expired","ب دوماهی هاتی"],["disabled","ڕاگرتی"]]
+    .map(([k,l]) => `<div class="stat"><b>${st[k]}</b><span>${l}</span></div>`).join("");
+  const list = all.filter(c => !q || c.id.includes(q) || (c.note||"").toUpperCase().includes(q));
+  $("rows").innerHTML = list.map(c => {
+    const [k, l] = status(c);
+    const end = c.activatedAt ? new Date(c.activatedAt.toMillis() + c.days * DAY).toLocaleDateString("en-GB") : "—";
+    const dur = c.days === 30 ? "هەیڤەک" : c.days === 180 ? "6 هەیڤ" : c.days === 365 ? "سالەک" : c.days + " ڕۆژ";
+    return `<tr><td class="code">${c.id}</td><td>${dur}</td><td><span class="tag ${k}">${l}</span></td><td>${end}</td>
+      <td>${(c.note||"").replace(/</g,"&lt;")}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" data-a="toggle" data-id="${c.id}">${c.disabled ? "چالاک بکە" : "ڕابگرە"}</button>
+        ${c.deviceId ? `<button class="btn sm" data-a="reset" data-id="${c.id}" title="بۆ کڕیارێ مۆبایلا خۆ گوهۆڕی">گوهۆڕینا ئامیری</button>` : ""}
+      </td></tr>`;
+  }).join("") || `<tr><td colspan="6" style="color:var(--muted)">چ کۆد نینن</td></tr>`;
+}
+$("search").addEventListener("input", render);
+$("plAdd").onclick = async () => {
+  const url = $("plUrl").value.trim();
+  if (!/^https?:\/\//.test(url)){ alertMsg("لینکەکێ دروست (https://…) بنڤیسە"); return; }
+  try { await db.collection("playlists").add({ url, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); $("plUrl").value = ""; }
+  catch(e){ alertMsg("❌ " + (e.code || e.message)); }
+};
+$("plRows").addEventListener("click", async e => {
+  const b = e.target.closest("[data-pldel]"); if (!b) return;
+  try { await db.collection("playlists").doc(b.dataset.pldel).delete(); } catch(e){ alertMsg("❌ " + (e.code || e.message)); }
+});
+$("chAdd").onclick = async () => {
+  const name = $("chName").value.trim(), url = $("chUrl").value.trim(), logo = $("chLogo").value.trim();
+  if (!name || !/^https?:\/\//.test(url)){ alertMsg("ناڤ و لینکەکێ دروست (https://…) بنڤیسە"); return; }
+  try {
+    await db.collection("channels").add({ name, url, logo, section: $("chSec").value, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    $("chName").value = $("chUrl").value = $("chLogo").value = "";
+  } catch(e){ alertMsg("❌ کەنال زێدە نەبوو: " + (e.code || e.message)); }
+};
+$("chRows").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  try { await db.collection("channels").doc(b.dataset.del).delete(); } catch(e){ alertMsg("❌ " + (e.code || e.message)); }
+});
+$("rows").addEventListener("click", async e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const c = all.find(x => x.id === b.dataset.id), ref = db.collection("codes").doc(c.id);
+  if (b.dataset.a === "toggle") await ref.update({ disabled: !c.disabled });
+  // گوهۆڕینا ئامیری: ئامیرێ کەڤن دهێتە ژێبرن، دەم ژ نوو دەست پێ ناکەت (ڕۆژێن مایین دمینن)
+  if (b.dataset.a === "reset"){
+    const used = Math.floor((Date.now() - c.activatedAt.toMillis()) / DAY);
+    await ref.update({ deviceId: null, activatedAt: null, days: Math.max(1, c.days - used) });
+  }
+});
+function alertMsg(t){ const d=document.createElement("div"); d.textContent=t; Object.assign(d.style,{position:"fixed",bottom:"20px",left:"50%",transform:"translateX(-50%)",background:"#e2453c",color:"#fff",padding:"10px 16px",borderRadius:"10px",zIndex:9}); document.body.appendChild(d); setTimeout(()=>d.remove(),3500) }
+</script>
+</body>
+</html>

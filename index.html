@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تیڤیێن کوردستانێ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{--bg:#0f1115;--card:#1a1d24;--line:#2a2f3a;--text:#eef0f4;--muted:#9aa3b2;--accent:#f5b400;--red:#e2453c;--green:#2fa84f}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;min-height:100vh}
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(90deg,var(--red),#c9302c 33%,#fff 33%,#fff 66%,var(--green) 66%);padding-bottom:3px}
+  .bar{background:var(--bg);padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .sun{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle,var(--accent) 45%,transparent 47%),repeating-conic-gradient(var(--accent) 0 8deg,transparent 8deg 17.14deg);flex:none}
+  h1{font-size:19px;font-weight:700}
+  .count{color:var(--muted);font-size:13px;margin-inline-start:auto}
+  #playerWrap{background:#000;position:sticky;top:57px;z-index:4;display:none}
+  #playerWrap.on{display:block}
+  video{width:100%;max-height:45vh;display:block;background:#000}
+  .now{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);font-size:14px}
+  .now b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn{background:var(--line);color:var(--text);border:0;border-radius:8px;padding:7px 11px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none}
+  .btn.acc{background:var(--accent);color:#111;font-weight:600}
+  #msg{padding:10px 12px;font-size:13px;color:#ffd27a;background:#2a2412;display:none;line-height:1.6}
+  .tools{padding:12px;display:flex;flex-direction:column;gap:10px}
+  input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:15px;font-family:inherit}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+  .tab{white-space:nowrap;padding:6px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;cursor:pointer;color:var(--muted)}
+  .tab.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0 12px 24px}
+  .ch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s}
+  .ch:hover,.ch.playing{border-color:var(--accent)}
+  .ch:focus,.tab:focus,.btn:focus,input:focus{outline:3px solid var(--accent);outline-offset:2px;transform:scale(1.04)}
+  @media (min-width:1200px){#grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}.name{font-size:17px}.logo{height:80px}.logo img{max-height:80px}h1{font-size:24px}}
+  .logo{height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+  .logo img{max-height:56px;max-width:100%;object-fit:contain}
+  .ph{width:56px;height:56px;border-radius:12px;background:var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:var(--accent)}
+  .name{font-size:14px;font-weight:600;direction:ltr;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .grp{font-size:11px;color:var(--muted);margin-top:3px}
+  .fav{position:absolute;top:6px;left:8px;font-size:18px;color:var(--muted);background:none;border:0;cursor:pointer}
+  .fav.on{color:var(--accent)}
+  .state{padding:40px 16px;text-align:center;color:var(--muted);line-height:1.8}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+  summary{cursor:pointer;color:var(--muted)}
+  details .row{display:flex;gap:8px;margin-top:10px}
+  #gate{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+  #gate.off{display:none}
+  .gbox{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;text-align:center}
+  .gbox h2{font-size:20px;margin:12px 0 6px}.gbox p{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:16px}
+  #codeIn{text-align:center;letter-spacing:2px;font-size:18px;direction:ltr;text-transform:uppercase;margin-bottom:12px}
+  #gateBtn{width:100%;padding:12px;font-size:16px}
+  #gateErr{color:#ff7a70;font-size:14px;min-height:22px;margin-top:10px}
+  .sub{font-size:12px;color:var(--muted);cursor:pointer}
+  .secs{display:flex;gap:8px}
+  .sec{flex:1;text-align:center;padding:11px 8px;border-radius:12px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-weight:600;font-size:15px;color:var(--muted)}
+  .sec.on{background:linear-gradient(135deg,#2fa84f,#1d7a37);color:#fff;border-color:#2fa84f}
+  .sec.on.sp{background:linear-gradient(135deg,#e2453c,#a82a23);border-color:#e2453c}
+  .pin{position:absolute;top:6px;right:8px;font-size:11px;background:var(--accent);color:#111;border-radius:6px;padding:1px 6px;font-weight:700}
+  .more{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:10px}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gbox">
+  <div class="sun" style="margin:0 auto;width:48px;height:48px"></div>
+  <h2>چالاککرنا ئەپی</h2>
+  <p>کۆدێ چالاککرنێ بنڤیسە. هەر کۆدەک ب تنێ ل سەر ئێک ئامیری کار دکەت.</p>
+  <input id="codeIn" placeholder="XXXX-XXXX-XXXX" autocomplete="off">
+  <button class="btn acc" id="gateBtn">چالاک بکە</button>
+  <div id="gateErr"></div>
+</div></div>
+<header><div class="bar"><div class="sun"></div><h1>تیڤیێن کوردستانێ</h1><span class="count" id="count"></span></div><div style="background:var(--bg);padding:0 14px 8px;font-size:12px;color:var(--muted)" id="subInfo"></div></header>
+
+<div id="playerWrap">
+  <video id="video" controls playsinline autoplay></video>
+  <div class="now"><b id="nowName"></b>
+    <button class="btn" id="copyBtn">کۆپی لینک</button>
+    <button class="btn" id="closeBtn">✕</button>
+  </div>
+  <div id="msg"></div>
+</div>
+
+<div class="tools">
+  <div class="secs" id="secs"><div class="sec on" data-s="kurdish" tabindex="0">📺 کەنالێن کوردی</div><div class="sec sp" data-s="sports" tabindex="0">⚽ وەرزش</div></div>
+  <input id="search" type="search" placeholder="🔍 ل کەنالی بگەڕێ… (Rudaw, Kurdsat, K24…)">
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div id="grid"><div class="state">⏳ کەنال دهێنە بارکرن…</div></div>
+
+<script>
+const PLAYLISTS = [
+  "https://iptv-org.github.io/iptv/languages/kur.m3u",
+  "https://iptv-org.github.io/iptv/languages/ckb.m3u",
+  "https://iptv-org.github.io/iptv/languages/kmr.m3u",
+  // لیستا کوردی یا تاقیکری (هەر 6 دەمژمێران دهێتە نووکرن) — KurdMax سۆرانی و بادینی و گەلەکێن دی
+  "https://redin14.github.io/kurdish-tv-playlist/playlist.m3u"
+];
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch(e){ return d } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} }
+};
+const SPORTS = ["https://iptv-org.github.io/iptv/categories/sports.m3u"];
+let section = "kurdish", sportsLoaded = false;
+let channels = [], favs = new Set(store.get("favs", [])), filter = "all", hls = null, current = null;
+
+function parseM3U(text){
+  const out = [], lines = text.split(/\r?\n/);
+  let meta = null;
+  for (const raw of lines){
+    const line = raw.trim();
+    if (line.startsWith("#EXTINF")){
+      const attr = n => (line.match(new RegExp(n + '="([^"]*)"')) || [])[1] || "";
+      const name = line.slice(line.lastIndexOf(",") + 1).trim();
+      meta = { name: name.replace(/\s*\((\d+p|Geo-blocked|Not 24\/7)\)/gi, "").trim() || "Channel",
+               logo: attr("tvg-logo"), group: attr("group-title").split(";")[0] || "گشتی",
+               notes: (name.match(/\[(.*?)\]|\((Geo-blocked|Not 24\/7)\)/i) || [])[0] || "" };
+    } else if (line && !line.startsWith("#") && meta){
+      out.push({ ...meta, url: line }); meta = null;
+    }
+  }
+  return out;
+}
+
+async function load(urls, sec = "kurdish"){
+  const results = await Promise.allSettled(urls.map(u => fetch(u).then(r => { if(!r.ok) throw 0; return r.text() })));
+  const seen = new Set(channels.map(c => c.url));
+  let added = 0;
+  results.forEach(r => { if (r.status === "fulfilled") parseM3U(r.value).forEach(c => { if(!seen.has(c.url)){ seen.add(c.url); c.sec = sec; channels.push(c); added++ } }) });
+  sortChannels();
+  return added;
+}
+function sortChannels(){ channels.sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || a.name.localeCompare(b.name)); }
+const inSec = c => section === "sports" ? (c.sec === "sports" || /sport/i.test(c.group)) : c.sec === "kurdish";
+
+// کەنالێن تە ب خۆ ژ لاپەڕێ admin زێدە دکەی (Firestore)
+async function loadAdminPlaylists(){
+  try {
+    const snap = await db.collection("playlists").get();
+    const urls = []; snap.forEach(d => { const u = d.data().url; if (u) urls.push(u); });
+    if (urls.length) await load(urls, "kurdish");
+  } catch(e) {}
+}
+async function loadCustom(){
+  try {
+    const snap = await db.collection("channels").get();
+    const seen = new Set(channels.map(c => c.url));
+    snap.forEach(d => { const c = d.data(); if (c.url && !seen.has(c.url)){
+      channels.push({ name: c.name || "Channel", url: c.url, logo: c.logo || "", group: c.group || (c.section === "sports" ? "Sports" : "⭐ تایبەت"), sec: c.section || "kurdish", pinned: true, notes: "" }); seen.add(c.url); } });
+    sortChannels();
+  } catch(e) {}
+}
+
+function renderSecs(){
+  document.querySelectorAll(".sec").forEach(el => el.classList.toggle("on", el.dataset.s === section));
+  $("search").placeholder = section === "sports" ? "🔍 ل کەنالێن وەرزشی بگەڕێ… (Sport, Football…)" : "🔍 ل کەنالی بگەڕێ… (Rudaw, Kurdsat, K24…)";
+}
+async function switchSection(s){
+  if (s === section) return;
+  section = s; filter = "all"; $("search").value = ""; renderSecs();
+  if (s === "sports" && !sportsLoaded){
+    $("tabs").innerHTML = ""; $("grid").innerHTML = `<div class="state">⏳ کەنالێن وەرزشی دهێنە بارکرن…</div>`;
+    await load(SPORTS, "sports"); sportsLoaded = true;
+  }
+  renderTabs(); render();
+}
+
+function renderTabs(){
+  const groups = [...new Set(channels.filter(inSec).map(c => c.group))].sort();
+  const tabs = [["all","هەمی"],["fav","⭐ دلخواز"], ...groups.map(g => [g, g])];
+  $("tabs").innerHTML = tabs.map(([k,l]) => `<div class="tab ${filter===k?"on":""}" data-k="${k}" tabindex="0">${l}</div>`).join("");
+}
+
+function render(){
+  const q = $("search").value.toLowerCase().trim();
+  const all = channels.filter(c => filter === "fav" ? favs.has(c.url) : inSec(c));
+  const full = all.filter(c => (filter === "all" || filter === "fav" || c.group === filter) && (!q || c.name.toLowerCase().includes(q)));
+  const LIMIT = 300, list = full.slice(0, LIMIT);
+  $("count").textContent = channels.filter(inSec).length + " کەنال";
+  if (!list.length){ $("grid").innerHTML = `<div class="state">${filter==="fav" ? "هێشتا تە چ کەنال نەکرینە دلخواز. ☆ بکە ل سەر کەنالەکی." : "چ کەنال نەهاتنە دیتن."}</div>`; return; }
+  $("grid").innerHTML = list.map(c => {
+    const i = channels.indexOf(c);
+    const ph = `<div class="ph">${c.name.charAt(0)}</div>`;
+    const logo = c.logo ? `<img src="${c.logo}" alt="" loading="lazy" onerror="this.outerHTML='${ph.replace(/"/g,"&quot;")}'">` : ph;
+    return `<div class="ch ${current===c?"playing":""}" data-i="${i}" tabindex="0">
+      <button class="fav ${favs.has(c.url)?"on":""}" data-f="${i}">${favs.has(c.url)?"★":"☆"}</button>
+      ${c.pinned ? '<span class="pin">نوو</span>' : ""}
+      <div class="logo">${logo}</div><div class="name">${c.name}</div><div class="grp">${c.group}</div></div>`;
+  }).join("") + (full.length > LIMIT ? `<div class="more">${full.length - LIMIT} کەنالێن دی هەنە. ل سەرێ بگەڕێ دا ببینی.</div>` : "");
+}
+
+function showMsg(t){ $("msg").innerHTML = t; $("msg").style.display = t ? "block" : "none"; }
+
+function play(c){
+  current = c; render();
+  const v = $("video");
+  $("playerWrap").classList.add("on");
+  $("nowName").textContent = c.name;
+  showMsg("");
+  if (hls){ hls.destroy(); hls = null; }
+  const fail = () => showMsg(`⚠️ ئەڤ کەنالە نوکە ل ڤێرە کار ناکەت (دبیت لینک هاتبیتە گوهۆڕین، یان ب تنێ ل هندەک وەڵاتان هەبیت).<br>"کۆپی لینک" بکە و د ئەپێ <b>VLC</b> دا ڤەکە.`);
+  if (window.Hls && Hls.isSupported()){
+    hls = new Hls({ maxBufferLength: 20 });
+    hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) fail(); });
+    hls.loadSource(c.url); hls.attachMedia(v);
+  } else {
+    v.src = c.url; v.onerror = fail;
+  }
+  v.play().catch(()=>{});
+  if (typeof isTV!=="undefined" && isTV) goFullscreen();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+$("grid").addEventListener("click", e => {
+  const f = e.target.closest("[data-f]");
+  if (f){ e.stopPropagation(); const c = channels[f.dataset.f];
+    favs.has(c.url) ? favs.delete(c.url) : favs.add(c.url); store.set("favs", [...favs]); render(); return; }
+  const card = e.target.closest("[data-i]");
+  if (card) play(channels[card.dataset.i]);
+});
+$("secs").addEventListener("click", e => { const t = e.target.closest("[data-s]"); if (t) switchSection(t.dataset.s); });
+$("tabs").addEventListener("click", e => { const t = e.target.closest("[data-k]"); if(t){ filter = t.dataset.k; renderTabs(); render(); } });
+$("search").addEventListener("input", render);
+$("closeBtn").onclick = () => { if(hls){hls.destroy();hls=null} const v=$("video"); v.pause(); v.removeAttribute("src"); v.load(); $("playerWrap").classList.remove("on"); current=null; render(); };
+$("copyBtn").onclick = async () => { try{ await navigator.clipboard.writeText(current.url); $("copyBtn").textContent="✓ هاتە کۆپیکرن" }catch(e){ showMsg(`<span dir="ltr">${current.url}</span>`) } setTimeout(()=>$("copyBtn").textContent="کۆپی لینک",1500) };
+function alertBox(t){ const d=document.createElement("div"); d.textContent=t; Object.assign(d.style,{position:"fixed",bottom:"20px",left:"50%",transform:"translateX(-50%)",background:"#f5b400",color:"#111",padding:"10px 16px",borderRadius:"10px",fontWeight:"600",zIndex:9}); document.body.appendChild(d); setTimeout(()=>d.remove(),2500) }
+
+
+// ===== TV remote (D-pad) navigation =====
+var isTV = /SMART-TV|Tizen|Web0S|webOS|NetCast|Android TV|AFT|BRAVIA|GoogleTV/i.test(navigator.userAgent);
+function goFullscreen(){ const v=$("video"); try{ (v.requestFullscreen||v.webkitRequestFullscreen||function(){}).call(v) }catch(e){} }
+function closePlayer(){ if(document.fullscreenElement){ try{document.exitFullscreen()}catch(e){} } $("closeBtn").onclick(); const p=document.querySelector(".ch.playing")||document.querySelector(".ch"); }
+function moveFocus(dir){
+  const items=[...document.querySelectorAll(".ch,.tab,.sec,#search")].filter(el=>el.offsetParent);
+  const cur=document.activeElement;
+  if(!items.includes(cur)){ (document.querySelector(".ch")||items[0])?.focus(); return; }
+  const r=cur.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let best=null,bd=Infinity;
+  for(const el of items){ if(el===cur) continue;
+    const b=el.getBoundingClientRect(), x=b.left+b.width/2, y=b.top+b.height/2, dx=x-cx, dy=y-cy;
+    const ok = dir==="up"?dy<-5 : dir==="down"?dy>5 : dir==="left"?dx<-5 : dx>5;
+    if(!ok) continue;
+    const d = (dir==="up"||dir==="down") ? Math.abs(dy)+Math.abs(dx)*2 : Math.abs(dx)+Math.abs(dy)*3;
+    if(d<bd){bd=d;best=el}
+  }
+  if(best){ best.focus(); best.scrollIntoView({block:"nearest",behavior:"smooth"}); }
+}
+document.addEventListener("keydown", e => {
+  if (!$("gate").classList.contains("off")) return;
+  const k=e.keyCode, typing=document.activeElement && document.activeElement.tagName==="INPUT";
+  const back = k===10009 || k===461 || k===27 || (k===8 && !typing);
+  if(back && $("playerWrap").classList.contains("on")){ e.preventDefault(); closePlayer(); setTimeout(()=>moveFocus("down"),50); return; }
+  if(typing && (k===37||k===39)) return;
+  const map={37:"left",38:"up",39:"right",40:"down"};
+  if(map[k]){ e.preventDefault(); moveFocus(map[k]); return; }
+  if(k===13){ const el=document.activeElement; if(el && el.matches(".ch,.tab,.sec")){ e.preventDefault(); el.click(); } }
+});
+
+// ===== Activation (Firebase) =====
+// 👇 ئەڤێ ب زانیاریێن پرۆژەیێ خۆ یێ Firebase بگوهۆڕە (هەمان زانیاری د admin.html دا ژی)
+const firebaseConfig = {
+  apiKey: "AIzaSyB7wpB9v_HYHKXHk2buQo6-bktnAFZld7A",
+  authDomain: "kurdistan-tv-3ce5e.firebaseapp.com",
+  projectId: "kurdistan-tv-3ce5e",
+  storageBucket: "kurdistan-tv-3ce5e.firebasestorage.app",
+  messagingSenderId: "821837021676",
+  appId: "1:821837021676:web:83ea8ed6ccb9f55f27c0c9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DID = (() => { let id = store.get("did");
+  if (!id){ id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)); store.set("did", id); }
+  return id; })();
+const DAY = 864e5;
+const normCode = c => c.toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/(.{4})(?=.)/g,"$1-");
+
+async function checkCode(code, claim){
+  const ref = db.collection("codes").doc(code);
+  let snap = await ref.get();
+  if (!snap.exists) return { ok:false, msg:"❌ ئەڤ کۆدە نەدروستە" };
+  let d = snap.data();
+  if (d.disabled) return { ok:false, msg:"⛔ ئەڤ کۆدە هاتیە ڕاگرتن" };
+  if (!d.deviceId){
+    if (!claim) return { ok:false, msg:"" };
+    try { await ref.update({ deviceId: DID, activatedAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+    catch(e){ return { ok:false, msg:"❌ ئەڤ کۆدە ل سەر ئامیرەکێ دی هاتیە بکارئینان" }; }
+    d = (await ref.get()).data();
+  } else if (d.deviceId !== DID){
+    return { ok:false, msg:"❌ ئەڤ کۆدە ل سەر ئامیرەکێ دی هاتیە بکارئینان" };
+  }
+  const exp = d.activatedAt.toMillis() + d.days * DAY;
+  if (Date.now() > exp) return { ok:false, msg:"⌛ دەمێ ڤی کۆدی ب دوماهی هاتیە. کۆدەکێ نوو بکڕە" };
+  return { ok:true, exp };
+}
+
+function showSub(exp){
+  const left = Math.ceil((exp - Date.now()) / DAY);
+  $("subInfo").textContent = `✅ چالاکە — ${left} ڕۆژ مایینە (هەتا ${new Date(exp).toLocaleDateString("en-GB")})`;
+}
+function lockApp(msg){
+  $("gate").classList.remove("off"); $("gateErr").textContent = msg || "";
+  if ($("playerWrap").classList.contains("on")) $("closeBtn").onclick();
+  store.set("code", null); store.set("exp", null);
+}
+let started = false;
+async function startApp(){
+  if (started) return; started = true;
+  await Promise.all([load(PLAYLISTS, "kurdish"), loadAdminPlaylists(), loadCustom()]);
+  sortChannels();
+  if (!channels.length){ $("grid").innerHTML = `<div class="state">❌ لیستا کەنالان نەهاتە بارکرن.<br>پێوەندیا ئینتەرنێتێ کۆنترۆل بکە و جارەکا دی تاقی بکە.</div>`; return; }
+  renderTabs(); render();
+  if(isTV) setTimeout(()=>document.querySelector(".ch")?.focus(),100);
+}
+
+async function verify(){
+  const code = store.get("code");
+  if (!code) return lockApp();
+  try {
+    const r = await checkCode(code, false);
+    if (!r.ok) return lockApp(r.msg);
+    store.set("exp", r.exp); showSub(r.exp);
+    $("gate").classList.add("off"); startApp();
+  } catch(e){
+    // ئینتەرنێت نینە؟ ئەگەر دەم مابیت، ب کاشێ بەردەوام بە
+    const exp = store.get("exp");
+    if (exp && Date.now() < exp){ showSub(exp); $("gate").classList.add("off"); startApp(); }
+    else lockApp("⚠️ پێوەندی ب سێرڤەری نەبوو. ئینتەرنێتێ کۆنترۆل بکە");
+  }
+}
+
+$("gateBtn").onclick = async () => {
+  const code = normCode($("codeIn").value);
+  if (code.length < 8){ $("gateErr").textContent = "کۆدی بنڤیسە"; return; }
+  $("gateBtn").disabled = true; $("gateErr").textContent = "⏳ …";
+  try {
+    const r = await checkCode(code, true);
+    if (!r.ok){ $("gateErr").textContent = r.msg; return; }
+    store.set("code", code); store.set("exp", r.exp); showSub(r.exp);
+    $("gate").classList.add("off"); startApp();
+  } catch(e){ $("gateErr").textContent = "⚠️ پێوەندی ب سێرڤەری نەبوو. ئینتەرنێتێ کۆنترۆل بکە"; }
+  finally { $("gateBtn").disabled = false; }
+};
+$("codeIn").addEventListener("keydown", e => { if (e.keyCode === 13) $("gateBtn").click(); });
+verify();
+setInterval(verify, 30 * 60 * 1000); // هەر 30 خولەکان جارەکێ کۆنترۆل دکەت
+setInterval(() => { const exp = store.get("exp"); if (exp && Date.now() > exp) lockApp("⌛ دەمێ ڤی کۆدی ب دوماهی هاتیە. کۆدەکێ نوو بکڕە"); }, 60 * 1000);
+</script>
+</body>
+</html>
