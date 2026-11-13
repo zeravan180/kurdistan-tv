@@ -259,6 +259,10 @@ const KURDISH_LISTS = [
   IPTV + "languages/kur.m3u", IPTV + "languages/ckb.m3u", IPTV + "languages/kmr.m3u",
   "https://redin14.github.io/kurdish-tv-playlist/playlist.m3u"
 ];
+// کەنالێن ب تنێ ل سایتا خۆ یا فەرمی پەخش دکەن: ل سایتا وان ڤەدبن
+const OFFICIAL_WEB = [
+  { name:"KurdMax", url:"https://www.kurdmax.tv/live-stream?lang=ku", group:"Entertainment", sec:"kurdish", q:"HD", logo:"", type:"web" },
+];
 // plan: "basic" بەشێن بنیاتی، "premium" ب تنێ بۆ پرێمیۆم
 const SECTIONS = [
   { id:"kurdish", label:"کوردی",  icon:"📺", plan:"basic",   lists:[], h:["#1f3a7a","#0f5a35"] },
@@ -418,7 +422,7 @@ function card(c){
   const f = favs.has(c.url);
   return `<div class="ch ${current === c ? "playing" : ""} ${isBroken(c) ? "dead" : ""}" data-i="${i}" tabindex="0">
     <div class="thumb">${logo}</div>
-    ${c.pinned ? '<span class="newb">نوو</span>' : ""}
+    ${c.type === "web" ? '<span class="newb" style="background:#4c8dff;color:#fff">🌐 سایتا فەرمی</span>' : c.pinned ? '<span class="newb">نوو</span>' : ""}
     <button class="fav ${f ? "on" : ""}" data-f="${i}" tabindex="-1" aria-label="دلخواز">${f ? "★" : "☆"}</button>
     <div class="info"><div class="name">${esc(c.name)}</div>
       <div class="meta"><span class="q ${c.q === "4K" ? "k4" : c.q}">${c.q}</span><span>${esc(gName(c.group))}</span></div></div></div>`;
@@ -479,14 +483,19 @@ function showMsg(t){ $("msg").innerHTML = t || ""; $("msg").classList.toggle("hi
 // ---- broken-channel memory (24h) ----
 let broken = store.get("broken", {});
 (() => { const now = Date.now(); for (const u in broken) if (now - broken[u] > DAYMS) delete broken[u]; store.set("broken", broken); })();
-const isBroken = c => !!broken[c.url];
+const isBroken = c => c.type !== "web" && !!broken[c.url];
 function markBroken(c){ broken[c.url] = Date.now(); store.set("broken", broken); document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.add("dead")); }
 function markOk(c){ if (broken[c.url]){ delete broken[c.url]; store.set("broken", broken); } document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.remove("dead")); }
 const baseName = n => n.toLowerCase().replace(/\(alt\s*\d*\)|\[.*?\]|\(.*?\)/g, "").replace(/\s+(hd|sd|fhd|4k|tv)\b/g, "").replace(/[^a-z0-9؀-ۿ]+/g, "");
 function alternatives(c){ const b = baseName(c.name); return channels.filter(x => x !== c && baseName(x.name) === b && !isBroken(x)); }
 
 let playToken = 0;
+function openWeb(c){
+  recent = [c.url, ...recent.filter(u => u !== c.url)].slice(0, 20); store.set("recent", recent);
+  const a = document.createElement("a"); a.href = c.url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
+}
 function play(c, opts = {}){
+  if (c.type === "web"){ if (!opts.keepList) openWeb(c); else step(1, true); return; }
   current = c;
   if (!opts.keepList) playList = secChannels();
   recent = [c.url, ...recent.filter(u => u !== c.url)].slice(0, 20); store.set("recent", recent);
@@ -504,7 +513,7 @@ function play(c, opts = {}){
   const fail = () => {
     if (done || token !== playToken) return; done = true; clearTimeout(timer);
     markBroken(c);
-    const alt = alternatives(c).find(x => !tried.has(x.url));
+    const alt = alternatives(c).find(x => !tried.has(x.url) && x.type !== "web");
     if (alt) return play(alt, { keepList: true, tried, note: `🔁 لینکێ ئێکێ کار نەکر، لینکەکێ یەدەگ دهێتە تاقیکرن…` });
     showMsg(`⚠️ <b>${esc(c.name)}</b> نوکە ل ڤێرە پەخش ناکەت (یان ڕاوەستیایە، یان ب تنێ ل هندەک وەڵاتان دهێتە پەخشکرن).
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn acc" id="skipBtn" tabindex="0">◀ کەنالێ پاشتر</button><button class="btn" id="retryBtn" tabindex="0">🔄 دیسا تاقی بکە</button></div>`);
@@ -534,7 +543,7 @@ function step(d, skipBroken){
   let i = l.indexOf(current);
   for (let n = 0; n < l.length; n++){
     i = (i + d + l.length) % l.length;
-    if (!skipBroken || !isBroken(l[i])) return play(l[i], { keepList: true });
+    if (l[i].type !== "web" && (!skipBroken || !isBroken(l[i]))) return play(l[i], { keepList: true });
   }
 }
 function closePlayer(){
@@ -751,7 +760,7 @@ async function loadAdminData(){
     const seen = new Set(channels.map(c => c.url));
     snap.forEach(d => { const c = d.data(); if (c.url && !seen.has(c.url)){
       channels.push({ name: c.name || "Channel", url: c.url, logo: c.logo || "", group: c.group || "General", q: c.q || "HD",
-        sec: SECTIONS.some(s => s.id === c.section) ? c.section : "kurdish", pinned: true }); seen.add(c.url); } });
+        sec: SECTIONS.some(s => s.id === c.section) ? c.section : "kurdish", pinned: true, type: c.type === "web" ? "web" : "" }); seen.add(c.url); } });
     sortChannels();
   } catch(e) {}
 }
@@ -761,6 +770,7 @@ async function startApp(){
   if (started) return; started = true;
   applyKids();
   loaded.add("kurdish");
+  OFFICIAL_WEB.forEach(c => channels.push({ ...c, pinned: true }));
   await Promise.all([load(KURDISH_LISTS, "kurdish"), loadAdminData()]);
   await switchSection(kidsMode ? "kids" : "kurdish");
   if (isTV) setTimeout(() => document.querySelector(".ch,#hero")?.focus(), 150);

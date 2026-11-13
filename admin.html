@@ -89,6 +89,10 @@
     </div>
     <input id="chUrl" placeholder="لینکێ پەخشێ (…m3u8)" dir="ltr">
     <input id="chLogo" placeholder="لینکێ لۆگۆیێ (بژارتەیی)" dir="ltr">
+    <select id="chType">
+      <option value="stream">▶ پەخشێ ڕاستەوخۆ د ناڤ ئەپێ دا (لینکێ .m3u8)</option>
+      <option value="web">🌐 لینکێ سایتی (ل سایتا فەرمی یا کەنالی ڤەدبیت)</option>
+    </select>
     <button class="btn acc" id="chAdd">زێدە بکە</button>
     <div class="tablewrap" style="margin-top:12px"><table>
       <thead><tr><th>کەنال</th><th>بەش</th><th>لینک</th><th></th></tr></thead>
@@ -161,7 +165,7 @@ auth.onAuthStateChanged(u => {
     unsubCh = db.collection("channels").onSnapshot(snap => {
       const esc = t => String(t||"").replace(/</g,"&lt;");
       $("chRows").innerHTML = snap.docs.map(d => { const c = d.data();
-        return `<tr><td>${esc(c.name)}</td><td>${({sports:"⚽ وەرزش",kids:"🧸 زارۆک",movies:"🎬 فیلم"})[c.section] || "📺 کوردی"}</td>
+        return `<tr><td>${esc(c.name)}</td><td>${({sports:"⚽ وەرزش",kids:"🧸 زارۆک",movies:"🎬 فیلم"})[c.section] || "📺 کوردی"}${c.type === "web" ? " · 🌐" : ""}</td>
           <td class="code" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.url)}</td>
           <td><button class="btn sm" data-del="${d.id}">ژێببە</button></td></tr>`; }).join("")
         || `<tr><td colspan="4" style="color:var(--muted)">هێشتا تە چ کەنال زێدە نەکرینە</td></tr>`;
@@ -244,7 +248,7 @@ $("chAdd").onclick = async () => {
   const name = $("chName").value.trim(), url = $("chUrl").value.trim(), logo = $("chLogo").value.trim();
   if (!name || !/^https?:\/\//.test(url)){ alertMsg("ناڤ و لینکەکێ دروست (https://…) بنڤیسە"); return; }
   try {
-    await db.collection("channels").add({ name, url, logo, section: $("chSec").value, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection("channels").add({ name, url, logo, section: $("chSec").value, type: $("chType").value === "web" ? "web" : "stream", createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     $("chName").value = $("chUrl").value = $("chLogo").value = "";
   } catch(e){ alertMsg("❌ کەنال زێدە نەبوو: " + (e.code || e.message)); }
 };
