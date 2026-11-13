@@ -267,7 +267,7 @@ const KURDISH_LISTS = [
 // کەنالێن ب تنێ ل سایتا خۆ یا فەرمی پەخش دکەن: ل سایتا وان ڤەدبن
 const OFFICIAL_WEB = [
   // پەخشا ڕاستەوخۆ یا فەرمی یا KurdMax ل سەر YouTube (کەنالێ Kurdmax Media Network)
-  { name:"KurdMax", url:"https://www.youtube.com/channel/UC2-BKWY5KBdnfsd7HIgRrgg/live", group:"Entertainment", sec:"kurdish", q:"HD", logo:"", type:"youtube" },
+  // (کەنالێن YouTube نوکە ژ admin دهێنە زێدەکرن: ▶ YouTube لایڤ)
 ];
 // لینکێ YouTube دکەتە لینکێ embed
 function ytEmbed(u){
@@ -472,6 +472,7 @@ function render(){
   const list = secChannels();
   if (!list.length){ $("view").innerHTML = section === "world"
       ? `<div class="state">${flag(worldCountry)} بۆ ${esc(cName(worldCountry))} نوکە چ کەنالێن گشتی نەهاتنە دیتن.<br><button class="chip" data-k="back" tabindex="0" style="margin-top:12px">🌍 وەڵاتەکێ دی هەلبژێرە</button></div>`
+      : section === "free" ? `<div class="state">🆓 هێشتا چ کەنالێن بەلاش نەهاتینە زێدەکرن.<br>بۆ دیتنا هەمی کەنالان، کۆدی چالاک بکە 🔑</div>`
       : `<div class="state">😕 نوکە چ کەنال نەهاتنە دیتن.<br>پێوەندیا ئینتەرنێتێ کۆنترۆل بکە.</div>`; return; }
 
   if (filter === "all" && !q){
