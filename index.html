@@ -57,6 +57,9 @@ video{width:100%;max-height:42vh;aspect-ratio:16/9;display:block;background:#000
 #playerWrap:fullscreen .pbar b{font-size:18px}
 #playerWrap:fullscreen #msg,#playerWrap:-webkit-full-screen #msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:min(90%,560px);border-radius:16px;padding:16px 18px;font-size:15px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 #playerWrap:fullscreen #msg .btn{font-size:15px}
+#yt{display:block;width:100%;aspect-ratio:16/9;max-height:42vh;border:0;background:#000}
+#playerWrap:fullscreen #yt,#playerWrap:-webkit-full-screen #yt{width:100%;height:100%;max-height:none;aspect-ratio:auto}
+@media(min-width:1100px){#yt{max-height:55vh}}
 #msg{padding:10px 12px;font-size:13px;color:#ffd27a;background:#2a2412;line-height:1.7}
 
 /* ---------- content ---------- */
@@ -193,6 +196,7 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:35;height:calc(var(--n
   <input id="codeIn" placeholder="XXXX-XXXX-XXXX" autocomplete="off" inputmode="latin">
   <button class="btn acc" id="gateBtn">چالاک بکە</button>
   <div id="gateErr"></div>
+  <button class="btn" id="freeBtn" style="width:100%;margin-top:4px;padding:13px;background:linear-gradient(135deg,#ff0033,#b3001f);border-color:#ff0033;color:#fff">🆓 کەنالێن بەلاش تاقی بکە (YouTube)</button>
   <div class="contact gate-contact">
     <div class="ct">📞 بۆ وەرگرتنا کۆدێ چالاککرنێ پەیوەندیێ ب مە بکە</div>
     <div class="price">💰 ئەرزانترین نرخ</div>
@@ -262,8 +266,28 @@ const KURDISH_LISTS = [
 ];
 // کەنالێن ب تنێ ل سایتا خۆ یا فەرمی پەخش دکەن: ل سایتا وان ڤەدبن
 const OFFICIAL_WEB = [
-  { name:"KurdMax", url:"https://www.kurdmax.tv/live-stream?lang=ku", group:"Entertainment", sec:"kurdish", q:"HD", logo:"", type:"web" },
+  // پەخشا ڕاستەوخۆ یا فەرمی یا KurdMax ل سەر YouTube (کەنالێ Kurdmax Media Network)
+  { name:"KurdMax", url:"https://www.youtube.com/channel/UC2-BKWY5KBdnfsd7HIgRrgg/live", group:"Entertainment", sec:"kurdish", q:"HD", logo:"", type:"youtube" },
 ];
+// لینکێ YouTube دکەتە لینکێ embed
+function ytEmbed(u){
+  try {
+    const x = new URL(u), h = x.hostname.replace(/^www\.|^m\./, "");
+    let id = null, ch = null;
+    if (h === "youtu.be") id = x.pathname.slice(1);
+    else if (h.endsWith("youtube.com") || h.endsWith("youtube-nocookie.com")){
+      if (x.searchParams.get("v")) id = x.searchParams.get("v");
+      const m = x.pathname.match(/^\/(?:live|embed|shorts)\/([\w-]{6,})/); if (m && m[1] !== "live_stream") id = m[1];
+      const c = x.pathname.match(/^\/channel\/(UC[\w-]{10,})/); if (c) ch = c[1];
+      if (x.searchParams.get("channel")) ch = x.searchParams.get("channel");
+    }
+    const q = "autoplay=1&playsinline=1&rel=0&modestbranding=1";
+    if (id) return "https://www.youtube.com/embed/" + id.replace(/[^\w-]/g,"") + "?" + q;
+    if (ch) return "https://www.youtube.com/embed/live_stream?channel=" + ch + "&" + q;
+  } catch(e){}
+  return null;
+}
+let freeMode = false;
 // plan: "basic" بەشێن بنیاتی، "premium" ب تنێ بۆ پرێمیۆم
 const SECTIONS = [
   { id:"kurdish", label:"کوردی",  icon:"📺", plan:"basic",   lists:[], h:["#1f3a7a","#0f5a35"] },
@@ -271,6 +295,7 @@ const SECTIONS = [
   { id:"movies",  label:"فیلم",   icon:"🎬", plan:"premium", lists:[IPTV+"categories/movies.m3u", IPTV+"categories/series.m3u"], match:/movie|series|film|cinema|drama/i, h:["#5a1a1a","#2a1a5a"] },
   { id:"sports",  label:"وەرزش",  icon:"⚽", plan:"premium", lists:[IPTV+"categories/sports.m3u"], match:/sport/i, h:["#0f5a35","#5a2a0a"] },
   { id:"world",   label:"وەڵات",  icon:"🌍", plan:"premium", lists:[], h:["#1a4a6a","#4a2a6a"] },
+  { id:"free",    label:"بەلاش",  icon:"🆓", plan:"basic",   lists:[], hidden:true, h:["#7a1a1a","#1a1a1a"] },
 ];
 // هەمی وەڵات (ISO). ئێکەم: عێراق، تورکیا، سووریا، ئێران، پاشی وەڵاتێن نێزیک، پاشی هەمی یێن دی ب ڕێزا ئەلفبێ
 const COUNTRY_TOP = ["IQ","TR","SY","IR","AE","SA","KW","QA","BH","OM","JO","LB","EG","DE","SE","NL","GB","FR","US","AT","BE","CH","DK","NO","FI","IT","ES","GR","AM","AZ","GE","RU","UA","CA","AU"];
@@ -339,7 +364,7 @@ function sortChannels(){
 /* ================= sections ================= */
 const SEC = id => SECTIONS.find(s => s.id === id);
 const allowed = s => plan === "premium" || SEC(s).plan === "basic";
-const inSec = (c, s = section) => s === "world" ? (!!worldCountry && c.sec === "w:" + worldCountry) : c.sec === s || (s !== "kurdish" && c.sec === "kurdish" && SEC(s).match && SEC(s).match.test(c.group));
+const inSec = (c, s = section) => s === "free" ? c.type === "youtube" : s === "world" ? (!!worldCountry && c.sec === "w:" + worldCountry) : c.sec === s || (s !== "kurdish" && c.sec === "kurdish" && SEC(s).match && SEC(s).match.test(c.group));
 
 async function ensureSection(s){
   if (loaded.has(s)) return;
@@ -349,7 +374,12 @@ async function ensureSection(s){
 }
 
 function renderNav(){
-  const items = kidsMode ? SECTIONS.filter(s => s.id === "kids") : SECTIONS;
+  if (freeMode){
+    $("nav").innerHTML = `<button class="nav-item on" data-s="free" tabindex="0"><span class="ni">🆓</span>بەلاش</button>
+      <button class="nav-item" data-s="activate" tabindex="0"><span class="ni">🔑</span>چالاککرن</button>`;
+    return;
+  }
+  const items = kidsMode ? SECTIONS.filter(s => s.id === "kids") : SECTIONS.filter(s => !s.hidden);
   $("nav").innerHTML = items.map(s => `<button class="nav-item ${s.id === section ? "on" : ""}" data-s="${s.id}" tabindex="0">
       <span class="ni">${s.icon}</span>${s.label}${allowed(s.id) ? "" : '<span class="lock">🔒</span>'}</button>`).join("")
     + (kidsMode ? "" : `<button class="nav-item" data-s="menu" tabindex="0"><span class="ni">⚙️</span>زێدەتر</button>`);
@@ -357,6 +387,7 @@ function renderNav(){
 
 async function switchSection(s){
   if (s === "menu"){ openMenu(); return; }
+  if (s === "activate"){ $("gate").classList.remove("off"); $("codeIn").focus(); return; }
   section = s; filter = "all"; $("search").value = ""; if (s === "world") worldCountry = null;
   renderNav();
   window.scrollTo({ top: 0 });
@@ -423,7 +454,7 @@ function card(c){
   const f = favs.has(c.url);
   return `<div class="ch ${current === c ? "playing" : ""} ${isBroken(c) ? "dead" : ""}" data-i="${i}" tabindex="0">
     <div class="thumb">${logo}</div>
-    ${c.type === "web" ? '<span class="newb" style="background:#4c8dff;color:#fff">🌐 سایتا فەرمی</span>' : c.pinned ? '<span class="newb">نوو</span>' : ""}
+    ${c.type === "youtube" ? '<span class="newb" style="background:#ff0033;color:#fff">▶ YouTube</span>' : c.type === "web" ? '<span class="newb" style="background:#4c8dff;color:#fff">🌐 سایتا فەرمی</span>' : c.pinned ? '<span class="newb">نوو</span>' : ""}
     <button class="fav ${f ? "on" : ""}" data-f="${i}" tabindex="-1" aria-label="دلخواز">${f ? "★" : "☆"}</button>
     <div class="info"><div class="name">${esc(c.name)}</div>
       <div class="meta"><span class="q ${c.q === "4K" ? "k4" : c.q}">${c.q}</span><span>${esc(gName(c.group))}</span></div></div></div>`;
@@ -497,6 +528,8 @@ function openWeb(c){
 }
 function play(c, opts = {}){
   if (c.type === "web"){ if (!opts.keepList) openWeb(c); else step(1, true); return; }
+  if (c.type === "youtube") return playYT(c, opts);
+  stopYT();
   current = c;
   if (!opts.keepList) playList = secChannels();
   recent = [c.url, ...recent.filter(u => u !== c.url)].slice(0, 20); store.set("recent", recent);
@@ -548,7 +581,39 @@ function step(d, skipBroken){
     if (l[i].type !== "web" && (!skipBroken || !isBroken(l[i]))) return play(l[i], { keepList: true });
   }
 }
+function ytFrame(){
+  let f = $("yt");
+  if (!f){
+    f = document.createElement("iframe"); f.id = "yt";
+    f.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
+    f.setAttribute("allowfullscreen", ""); f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    $("playerWrap").insertBefore(f, $("playerWrap").querySelector(".pbar"));
+  }
+  return f;
+}
+function stopYT(){ const f = $("yt"); if (f){ f.remove(); } $("video").classList.remove("hide"); $("pipBtn").classList.toggle("hide", !pipSupported()); }
+function playYT(c, opts = {}){
+  const src = ytEmbed(c.url);
+  if (!src){ showMsg("⚠️ لینکێ YouTube یێ ڤی کەنالی نە دروستە."); return; }
+  playToken++;
+  if (hls){ hls.destroy(); hls = null; }
+  const v = $("video"); v.pause(); v.removeAttribute("src"); v.load(); v.classList.add("hide");
+  $("pipBtn").classList.add("hide");
+  current = c;
+  if (!opts.keepList) playList = secChannels();
+  recent = [c.url, ...recent.filter(u => u !== c.url)].slice(0, 20); store.set("recent", recent);
+  document.querySelectorAll(".ch.playing").forEach(e => e.classList.remove("playing"));
+  document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.add("playing"));
+  $("playerWrap").classList.add("on");
+  $("nowName").textContent = c.name;
+  showMsg("");
+  ytFrame().src = src;
+  updateMediaSession(c);
+  if (!opts.keepList) goFullscreen();
+  if (!opts.keepList) window.scrollTo({ top: 0, behavior: "smooth" });
+}
 function closePlayer(){
+  stopYT();
   playToken++;
   if (document.pictureInPictureElement){ try { document.exitPictureInPicture(); } catch(e){} }
   if (document.fullscreenElement){ try{ document.exitFullscreen() }catch(e){} } else if (document.webkitFullscreenElement){ try{ document.webkitExitFullscreen() }catch(e){} }
@@ -716,7 +781,13 @@ function moveFocus(dir){
   if (best){ best.focus({ preventScroll: true }); best.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" }); }
 }
 document.addEventListener("keydown", e => {
-  if (!$("gate").classList.contains("off")) return;
+  if (!$("gate").classList.contains("off")){
+    // ڕیمۆتا تیڤی ل سەر لاپەڕێ کۆدی: ⬆️⬇️ د ناڤبەرا خانێ و دوگمان دا
+    const els = [...$("gate").querySelectorAll("#codeIn,#gateBtn,#freeBtn,.contact .btn")], i = els.indexOf(document.activeElement);
+    if (e.keyCode === 40 || e.keyCode === 38){ e.preventDefault(); const n = i < 0 ? 0 : Math.max(0, Math.min(els.length - 1, i + (e.keyCode === 40 ? 1 : -1))); els[n].focus(); }
+    else if (e.keyCode === 13 && i > 0){ e.preventDefault(); els[i].click(); }
+    return;
+  }
   const k = e.keyCode, a = document.activeElement, typing = a && a.tagName === "INPUT";
   const back = k === 10009 || k === 461 || k === 27 || (k === 8 && !typing);
   if (back){
@@ -795,7 +866,7 @@ async function loadAdminData(){
     const seen = new Set(channels.map(c => c.url));
     snap.forEach(d => { const c = d.data(); if (c.url && !seen.has(c.url)){
       channels.push({ name: c.name || "Channel", url: c.url, logo: c.logo || "", group: c.group || "General", q: c.q || "HD",
-        sec: SECTIONS.some(s => s.id === c.section) ? c.section : "kurdish", pinned: true, type: c.type === "web" ? "web" : "" }); seen.add(c.url); } });
+        sec: SECTIONS.some(s => s.id === c.section) ? c.section : "kurdish", pinned: true, type: (c.type === "web" || c.type === "youtube") ? c.type : "" }); seen.add(c.url); } });
     sortChannels();
   } catch(e) {}
 }
@@ -811,7 +882,19 @@ async function startApp(){
   if (isTV) setTimeout(() => document.querySelector(".ch,#hero")?.focus(), 150);
 }
 
+async function startFree(){
+  freeMode = true;
+  $("gate").classList.add("off");
+  if (started) return; started = true;
+  $("subInfo").innerHTML = `<span class="plan basic">🆓 FREE</span><span>کەنالێن بەلاش · بۆ هەمی کەنالان، کۆدی چالاک بکە</span>`;
+  applyKids(); $("menuBtn").classList.add("hide");
+  OFFICIAL_WEB.forEach(c => channels.push({ ...c, pinned: true }));
+  await loadAdminData();
+  loaded.add("free");
+  await switchSection("free");
+}
 async function verify(){
+  if (freeMode) return;
   const code = store.get("code");
   if (!code) return lockApp();
   try {
@@ -834,15 +917,17 @@ $("gateBtn").onclick = async () => {
     if (!r.ok){ $("gateErr").textContent = r.msg; return; }
     store.set("code", code); store.set("exp", r.exp); setPlan(r.plan); showSub(r.exp);
     $("gateErr").textContent = "";
+    if (started) { location.reload(); return; }   // ژ دۆخێ بەلاش هاتی: ئەپێ ب تەمامی بار بکە
     $("gate").classList.add("off"); startApp();
   } catch(e){ $("gateErr").textContent = "⚠️ پێوەندی ب سێرڤەری نەبوو. ئینتەرنێتێ کۆنترۆل بکە"; }
   finally { $("gateBtn").disabled = false; }
 };
 $("codeIn").addEventListener("keydown", e => { if (e.keyCode === 13) $("gateBtn").click(); });
+$("freeBtn").onclick = startFree;
 renderNav();
 verify();
 setInterval(verify, 30 * 60 * 1000);
-setInterval(() => { const exp = store.get("exp"); if (exp && Date.now() > exp) lockApp("⌛ دەمێ ڤی کۆدی ب دوماهی هاتیە. کۆدەکێ نوو بکڕە"); }, 60 * 1000);
+setInterval(() => { if (freeMode) return; const exp = store.get("exp"); if (exp && Date.now() > exp) lockApp("⌛ دەمێ ڤی کۆدی ب دوماهی هاتیە. کۆدەکێ نوو بکڕە"); }, 60 * 1000);
 </script>
 </body>
 </html>
