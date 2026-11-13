@@ -221,11 +221,12 @@ nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:35;height:calc(var(--n
 
 <!-- ============ player ============ -->
 <div id="playerWrap">
-  <video id="video" controls playsinline autoplay></video>
+  <video id="video" controls playsinline autoplay autopictureinpicture></video>
   <div class="pbar">
     <span class="live">LIVE</span><b id="nowName"></b>
     <button class="pbtn" id="prevBtn" title="کەنالێ بەری">▶</button>
     <button class="pbtn" id="nextBtn" title="کەنالێ پاشتر">◀</button>
+    <button class="pbtn" id="pipBtn" title="ڤیدیۆ ل سەر شاشێ (Picture-in-Picture)">⧉</button>
     <button class="pbtn" id="fsBtn" title="شاشا تەمام">⛶</button>
     <button class="pbtn" id="closeBtn" title="گرتن">✕</button>
   </div>
@@ -504,6 +505,7 @@ function play(c, opts = {}){
   const v = $("video");
   $("playerWrap").classList.add("on");
   $("nowName").textContent = c.name;
+  updateMediaSession(c);
   showMsg(opts.note || `<span style="color:#9fd">⏳ کەنال دهێتە ڤەکرن…</span>`);
   if (hls){ hls.destroy(); hls = null; }
   const token = ++playToken;
@@ -548,6 +550,7 @@ function step(d, skipBroken){
 }
 function closePlayer(){
   playToken++;
+  if (document.pictureInPictureElement){ try { document.exitPictureInPicture(); } catch(e){} }
   if (document.fullscreenElement){ try{ document.exitFullscreen() }catch(e){} } else if (document.webkitFullscreenElement){ try{ document.webkitExitFullscreen() }catch(e){} }
   if (hls){ hls.destroy(); hls = null; }
   const v = $("video"); v.pause(); v.removeAttribute("src"); v.load();
@@ -567,6 +570,36 @@ function goFullscreen(){
     }
   } catch(e){}
   pokeUI();
+}
+// ===== Picture-in-Picture: ڤیدیۆ ل سەر شاشێ دمینیت دەمێ تو ئەپێ دگری =====
+const pipSupported = () => (document.pictureInPictureEnabled && !$("video").disablePictureInPicture) || typeof $("video").webkitSetPresentationMode === "function";
+async function togglePip(){
+  const v = $("video");
+  try {
+    if (document.pictureInPictureElement){ await document.exitPictureInPicture(); return; }
+    if (document.pictureInPictureEnabled){
+      if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch(e){} }
+      await v.requestPictureInPicture(); return;
+    }
+    if (typeof v.webkitSetPresentationMode === "function"){
+      v.webkitSetPresentationMode(v.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
+    }
+  } catch(e){ showMsg("⚠️ ئەڤ ئامیرە Picture-in-Picture پشتگیری ناکەت."); }
+}
+function updateMediaSession(c){
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: c.name, artist: "AGKurdtv · LIVE", album: gName(c.group),
+      artwork: c.logo ? [{ src: c.logo, sizes: "512x512" }] : [] });
+  } catch(e){}
+}
+if ("mediaSession" in navigator){
+  const ms = navigator.mediaSession, set = (a, f) => { try { ms.setActionHandler(a, f); } catch(e){} };
+  set("play", () => $("video").play());
+  set("pause", () => $("video").pause());
+  set("nexttrack", () => step(1, true));       // ل سەر پەنجەرا بچووک: کەنالێ پاشتر
+  set("previoustrack", () => step(-1, true));  // کەنالێ بەری
+  set("enterpictureinpicture", () => $("video").requestPictureInPicture().catch(() => {}));  // Chrome: ب خۆ دەمێ تو ئەپێ دگری
 }
 // ل شاشا تەمام: شریتا ژۆری پشتی 3 چرکەیان ڤەدشێریت، و ب دەستلێدانێ دیار دبیت
 let uiTimer = null;
@@ -656,6 +689,8 @@ $("search").addEventListener("input", () => { if ($("search").value && filter !=
 $("closeBtn").onclick = closePlayer;
 $("prevBtn").onclick = () => step(-1);
 $("nextBtn").onclick = () => step(1);
+$("pipBtn").onclick = togglePip;
+if (!pipSupported()) $("pipBtn").classList.add("hide");
 $("fsBtn").onclick = () => (document.fullscreenElement || document.webkitFullscreenElement) ? (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()) : goFullscreen();
 $("menuBtn").onclick = openMenu;
 $("kidsExitBtn").onclick = exitKidsFlow;
