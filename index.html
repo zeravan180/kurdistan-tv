@@ -59,6 +59,12 @@
   .sec.on.sp{background:linear-gradient(135deg,#e2453c,#a82a23);border-color:#e2453c}
   .pin{position:absolute;top:6px;right:8px;font-size:11px;background:var(--accent);color:#111;border-radius:6px;padding:1px 6px;font-weight:700}
   .more{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:10px}
+  .contact{margin-top:16px;padding:14px;border-radius:12px;background:var(--bg);border:1px solid var(--line);text-align:center}
+  .contact .ct{font-size:14px;color:var(--muted);margin-bottom:6px}
+  .contact .num{font-size:20px;font-weight:700;letter-spacing:1px;margin-bottom:10px}
+  .contact .cbtns{display:flex;gap:8px;justify-content:center}
+  .contact .btn{padding:9px 16px;font-size:14px}
+  footer.app{padding:8px 12px 28px}
 </style>
 </head>
 <body>
@@ -69,6 +75,15 @@
   <input id="codeIn" placeholder="XXXX-XXXX-XXXX" autocomplete="off">
   <button class="btn acc" id="gateBtn">چالاک بکە</button>
   <div id="gateErr"></div>
+  <div class="contact">
+    <div class="ct" style="font-size:15px;color:var(--text);font-weight:600">📞 بۆ وەرگرتنا کۆدێ چالاککرنێ پەیوەندیێ ب مە بکە</div>
+    <div style="display:inline-block;background:var(--green);color:#fff;font-weight:700;font-size:13px;padding:3px 12px;border-radius:999px;margin-bottom:8px">💰 ئەرزانترین نرخ</div>
+    <div class="num" dir="ltr">0751 357 8668</div>
+    <div class="cbtns">
+      <a class="btn acc" href="https://wa.me/9647513578668" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn" href="tel:+9647513578668">پەیوەندی</a>
+    </div>
+  </div>
 </div></div>
 <header><div class="bar"><div class="sun"></div><h1>تیڤیێن کوردستانێ</h1><span class="count" id="count"></span></div><div style="background:var(--bg);padding:0 14px 8px;font-size:12px;color:var(--muted)" id="subInfo"></div></header>
 
@@ -88,6 +103,14 @@
 </div>
 
 <div id="grid"><div class="state">⏳ کەنال دهێنە بارکرن…</div></div>
+<footer class="app"><div class="contact">
+    <div class="ct">📞 پەیوەندیێ ب مە بکە</div>
+    <div class="num" dir="ltr">0751 357 8668</div>
+    <div class="cbtns">
+      <a class="btn acc" href="https://wa.me/9647513578668" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn" href="tel:+9647513578668">پەیوەندی</a>
+    </div>
+  </div></footer>
 
 <script>
 const PLAYLISTS = [
@@ -114,7 +137,9 @@ function parseM3U(text){
     if (line.startsWith("#EXTINF")){
       const attr = n => (line.match(new RegExp(n + '="([^"]*)"')) || [])[1] || "";
       const name = line.slice(line.lastIndexOf(",") + 1).trim();
-      meta = { name: name.replace(/\s*\((\d+p|Geo-blocked|Not 24\/7)\)/gi, "").trim() || "Channel",
+      const hm = line.match(/(\d{3,4})p\b/i), h = hm ? parseInt(hm[1]) : 0;
+      const qual = (h >= 2160 || /\b(4k|uhd)\b/i.test(line)) ? "4K" : (h >= 720 || /\b(hd|fhd)\b/i.test(name)) ? "HD" : "SD";
+      meta = { q: qual, name: name.replace(/\s*\((\d+p|Geo-blocked|Not 24\/7)\)/gi, "").trim() || "Channel",
                logo: attr("tvg-logo"), group: attr("group-title").split(";")[0] || "گشتی",
                notes: (name.match(/\[(.*?)\]|\((Geo-blocked|Not 24\/7)\)/i) || [])[0] || "" };
     } else if (line && !line.startsWith("#") && meta){
@@ -169,14 +194,15 @@ async function switchSection(s){
 
 function renderTabs(){
   const groups = [...new Set(channels.filter(inSec).map(c => c.group))].sort();
-  const tabs = [["all","هەمی"],["fav","⭐ دلخواز"], ...groups.map(g => [g, g])];
+  const qs = ["4K","HD","SD"].filter(x => channels.some(c => inSec(c) && (c.q || "SD") === x));
+  const tabs = [["all","هەمی"],["fav","⭐ دلخواز"], ...qs.map(x => ["q:"+x, x === "4K" ? "🔷 4K" : x === "HD" ? "🔶 HD" : "▫️ SD"]), ...groups.map(g => [g, g])];
   $("tabs").innerHTML = tabs.map(([k,l]) => `<div class="tab ${filter===k?"on":""}" data-k="${k}" tabindex="0">${l}</div>`).join("");
 }
 
 function render(){
   const q = $("search").value.toLowerCase().trim();
   const all = channels.filter(c => filter === "fav" ? favs.has(c.url) : inSec(c));
-  const full = all.filter(c => (filter === "all" || filter === "fav" || c.group === filter) && (!q || c.name.toLowerCase().includes(q)));
+  const full = all.filter(c => (filter === "all" || filter === "fav" || (filter.startsWith("q:") ? (c.q || "SD") === filter.slice(2) : c.group === filter)) && (!q || c.name.toLowerCase().includes(q)));
   const LIMIT = 300, list = full.slice(0, LIMIT);
   $("count").textContent = channels.filter(inSec).length + " کەنال";
   if (!list.length){ $("grid").innerHTML = `<div class="state">${filter==="fav" ? "هێشتا تە چ کەنال نەکرینە دلخواز. ☆ بکە ل سەر کەنالەکی." : "چ کەنال نەهاتنە دیتن."}</div>`; return; }
@@ -187,7 +213,7 @@ function render(){
     return `<div class="ch ${current===c?"playing":""}" data-i="${i}" tabindex="0">
       <button class="fav ${favs.has(c.url)?"on":""}" data-f="${i}">${favs.has(c.url)?"★":"☆"}</button>
       ${c.pinned ? '<span class="pin">نوو</span>' : ""}
-      <div class="logo">${logo}</div><div class="name">${c.name}</div><div class="grp">${c.group}</div></div>`;
+      <div class="logo">${logo}</div><div class="name">${c.name}</div><div class="grp">${c.group} · <b style="color:${c.q==="4K"?"#7cc4ff":c.q==="HD"?"#f5b400":"#9aa3b2"}">${c.q||"SD"}</b></div></div>`;
   }).join("") + (full.length > LIMIT ? `<div class="more">${full.length - LIMIT} کەنالێن دی هەنە. ل سەرێ بگەڕێ دا ببینی.</div>` : "");
 }
 
