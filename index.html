@@ -96,6 +96,7 @@ main{padding:4px 0 12px}
 .ch.playing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
 .ch.playing .thumb::after{content:"● LIVE";position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;color:#fff;background:var(--red);padding:1px 6px;border-radius:5px;font-family:Arial,sans-serif}
 .ch:hover{border-color:#3a4152}
+.ch.dead{opacity:.45}.ch.dead .thumb::before{content:"⚠️";position:absolute;bottom:6px;right:8px;font-size:12px}
 .more{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:12px}
 .state{padding:48px 18px;text-align:center;color:var(--muted);line-height:1.9}
 .spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp 1s linear infinite;margin:0 auto 12px}
@@ -264,6 +265,7 @@ const store = {
   get(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return v ?? d }catch(e){ return d } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} }
 };
+const DAYMS = 864e5;
 const esc = t => String(t ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 
 let channels = [], loaded = new Set(), favs = new Set(store.get("favs", [])), recent = store.get("recent", []);
@@ -346,7 +348,7 @@ function renderLocked(){
 }
 
 /* ================= chips & views ================= */
-function secChannels(){ return channels.filter(c => inSec(c)); }
+function secChannels(){ const l = channels.filter(c => inSec(c)); return l.filter(c => !isBroken(c)).concat(l.filter(isBroken)); }
 
 function renderChips(){
   const list = secChannels();
@@ -361,7 +363,7 @@ function card(c){
   const ph = `<div class="ph">${esc(c.name.charAt(0))}</div>`;
   const logo = c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:${JSON.stringify(c.name.charAt(0)).replace(/"/g,"&quot;")}}))">` : ph;
   const f = favs.has(c.url);
-  return `<div class="ch ${current === c ? "playing" : ""}" data-i="${i}" tabindex="0">
+  return `<div class="ch ${current === c ? "playing" : ""} ${isBroken(c) ? "dead" : ""}" data-i="${i}" tabindex="0">
     <div class="thumb">${logo}</div>
     ${c.pinned ? '<span class="newb">نوو</span>' : ""}
     <button class="fav ${f ? "on" : ""}" data-f="${i}" tabindex="-1" aria-label="دلخواز">${f ? "★" : "☆"}</button>
@@ -418,34 +420,69 @@ function render(){
 
 /* ================= player ================= */
 function showMsg(t){ $("msg").innerHTML = t || ""; $("msg").classList.toggle("hide", !t); }
-function play(c){
+// ---- broken-channel memory (24h) ----
+let broken = store.get("broken", {});
+(() => { const now = Date.now(); for (const u in broken) if (now - broken[u] > DAYMS) delete broken[u]; store.set("broken", broken); })();
+const isBroken = c => !!broken[c.url];
+function markBroken(c){ broken[c.url] = Date.now(); store.set("broken", broken); document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.add("dead")); }
+function markOk(c){ if (broken[c.url]){ delete broken[c.url]; store.set("broken", broken); } document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.remove("dead")); }
+const baseName = n => n.toLowerCase().replace(/\(alt\s*\d*\)|\[.*?\]|\(.*?\)/g, "").replace(/\s+(hd|sd|fhd|4k|tv)\b/g, "").replace(/[^a-z0-9؀-ۿ]+/g, "");
+function alternatives(c){ const b = baseName(c.name); return channels.filter(x => x !== c && baseName(x.name) === b && !isBroken(x)); }
+
+let playToken = 0;
+function play(c, opts = {}){
   current = c;
-  playList = secChannels();
+  if (!opts.keepList) playList = secChannels();
   recent = [c.url, ...recent.filter(u => u !== c.url)].slice(0, 20); store.set("recent", recent);
   document.querySelectorAll(".ch.playing").forEach(e => e.classList.remove("playing"));
   document.querySelectorAll(`.ch[data-i="${channels.indexOf(c)}"]`).forEach(e => e.classList.add("playing"));
   const v = $("video");
   $("playerWrap").classList.add("on");
   $("nowName").textContent = c.name;
-  showMsg("");
+  showMsg(opts.note || `<span style="color:#9fd">⏳ کەنال دهێتە ڤەکرن…</span>`);
   if (hls){ hls.destroy(); hls = null; }
-  const fail = () => showMsg(`⚠️ ئەڤ کەنالە نوکە کار ناکەت (دبیت بۆ دەمەکێ کورت ڕاوەستیابیت).<br>کەنالەکێ دی تاقی بکە، یان ▶ ◀ بۆ کەنالێ پاشتر.`);
+  const token = ++playToken;
+  const tried = opts.tried || new Set(); tried.add(c.url);
+  let done = false, recovered = 0;
+  const ok = () => { if (done || token !== playToken) return; done = true; clearTimeout(timer); markOk(c); showMsg(""); };
+  const fail = () => {
+    if (done || token !== playToken) return; done = true; clearTimeout(timer);
+    markBroken(c);
+    const alt = alternatives(c).find(x => !tried.has(x.url));
+    if (alt) return play(alt, { keepList: true, tried, note: `🔁 لینکێ ئێکێ کار نەکر، لینکەکێ یەدەگ دهێتە تاقیکرن…` });
+    showMsg(`⚠️ <b>${esc(c.name)}</b> نوکە ل ڤێرە پەخش ناکەت (یان ڕاوەستیایە، یان ب تنێ ل هندەک وەڵاتان دهێتە پەخشکرن).
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn acc" id="skipBtn" tabindex="0">◀ کەنالێ پاشتر</button><button class="btn" id="retryBtn" tabindex="0">🔄 دیسا تاقی بکە</button></div>`);
+    $("skipBtn").onclick = () => step(1, true);
+    $("retryBtn").onclick = () => { markOk(c); play(c); };
+    $("skipBtn").focus({ preventScroll: true });
+  };
+  const timer = setTimeout(fail, 15000);   // ئەگەر د 15 چرکەیان دا دەست پێ نەکر
+  v.onplaying = ok;
   if (window.Hls && Hls.isSupported()){
-    hls = new Hls({ maxBufferLength: 20, capLevelToPlayerSize: true });
-    hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) fail(); });
+    hls = new Hls({ maxBufferLength: 20, capLevelToPlayerSize: true, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
+    hls.on(Hls.Events.ERROR, (e, d) => {
+      if (!d.fatal || token !== playToken) return;
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && recovered++ < 2) return hls.recoverMediaError();
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && d.details !== "manifestLoadError" && d.details !== "manifestParsingError" && recovered++ < 2) return hls.startLoad();
+      fail();
+    });
     hls.loadSource(c.url); hls.attachMedia(v);
   } else { v.src = c.url; v.onerror = fail; }
   v.play().catch(() => {});
-  if (isTV) goFullscreen();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (isTV && !opts.keepList) goFullscreen();
+  if (!opts.keepList) window.scrollTo({ top: 0, behavior: "smooth" });
 }
-function step(d){
+function step(d, skipBroken){
   if (!current) return;
   const l = playList.length ? playList : secChannels();
-  const i = l.indexOf(current);
-  play(l[(i + d + l.length) % l.length]);
+  let i = l.indexOf(current);
+  for (let n = 0; n < l.length; n++){
+    i = (i + d + l.length) % l.length;
+    if (!skipBroken || !isBroken(l[i])) return play(l[i], { keepList: true });
+  }
 }
 function closePlayer(){
+  playToken++;
   if (document.fullscreenElement){ try{ document.exitFullscreen() }catch(e){} }
   if (hls){ hls.destroy(); hls = null; }
   const v = $("video"); v.pause(); v.removeAttribute("src"); v.load();
