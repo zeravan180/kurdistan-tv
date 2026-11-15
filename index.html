@@ -817,7 +817,10 @@ $("menuBtn").onclick = openMenu;
 $("kidsExitBtn").onclick = exitKidsFlow;
 
 /* ===== TV remote (D-pad) ===== */
-var isTV = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|Android TV|AFT|BRAVIA|GoogleTV|CrKey|HbbTV/i.test(navigator.userAgent);
+var isTV = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|Android TV|AFT|BRAVIA|GoogleTV|CrKey|HbbTV|TV Box|AndroidTV|MiBOX|Chromecast|DTV|STB/i.test(navigator.userAgent)
+  // جیهازێن ئەندرۆیدێ یێن TV (Box): بێ شاشا دەستلێدانێ، و ب ڕیمۆتێ کار دکەن
+  || (/Android/i.test(navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0)
+  || (window.matchMedia && matchMedia("(pointer: none)").matches);
 function focusables(){
   const root = modalOpen() ? $("mdl") : document;
   return [...root.querySelectorAll(modalOpen() ? "input,button,a.opt,a.btn" : ".ch,.ctry,.chip,.see,.nav-item,#hero,#search,.icon-btn:not(.hide),.pbtn,#msg .btn")].filter(el => el.offsetParent || el.closest("nav"));
