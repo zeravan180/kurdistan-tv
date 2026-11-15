@@ -61,20 +61,19 @@ video{width:100%;max-height:42vh;aspect-ratio:16/9;display:block;background:#000
 #playerWrap:fullscreen #yt,#playerWrap:-webkit-full-screen #yt{width:100%;height:100%;max-height:none;aspect-ratio:auto}
 @media(min-width:1100px){#yt{max-height:55vh}}
 /* ناڤێ ئەپێ ل سەر ڤیدیۆیێ، لایێ ڕاستێ */
-.wm{position:absolute;top:16%;right:3%;z-index:4;pointer-events:none;direction:ltr;font-family:"Arial Black",Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:-.5px;
-  font-size:clamp(13px,2.6vw,38px);color:#fff;opacity:.88;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.6)}
-.wm .k{color:#f5b400}.wm .t{color:#2fa84f}
-/* جووڵە: هاتنا ژ لایێ ڕاستێ، لەرزینەکا نەرم، و ڕۆناهیەک کو ل سەر پیتان دچیت */
-.wm{overflow:hidden;padding:2px 8px;border-radius:8px;animation:wmIn .9s cubic-bezier(.2,.8,.2,1) both, wmFloat 4.5s ease-in-out .9s infinite;will-change:transform}
-.wm::after{content:attr(data-t);position:absolute;left:8px;top:2px;white-space:nowrap;color:transparent;text-shadow:none;
-  background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.95) 50%,transparent 58%);background-size:300% 100%;background-position:150% 0;
-  -webkit-background-clip:text;background-clip:text;animation:wmShine 6s ease-in-out 1.2s infinite;pointer-events:none}
-.wm.again{animation:none}
-@keyframes wmIn{0%{opacity:0;transform:translateX(60%) scale(.8)}60%{opacity:.95;transform:translateX(-4%) scale(1.04)}100%{opacity:.9;transform:none}}
-@keyframes wmFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes wmShine{0%{background-position:150% 0}25%,100%{background-position:-50% 0}}
-@media (prefers-reduced-motion: reduce){.wm,.wm::after{animation:none}}
-body.tvmode .wm,#playerWrap:fullscreen .wm{font-size:clamp(18px,2.4vw,40px)}
+.wm{position:absolute;top:16%;right:3%;z-index:4;pointer-events:none;direction:ltr;display:flex;align-items:flex-end;
+  font-family:"Arial Black",Arial,Helvetica,sans-serif;font-weight:900;font-size:clamp(10px,1.5vw,22px);line-height:1;opacity:.9;
+  animation:wmIn .8s cubic-bezier(.2,.8,.2,1) both}
+.wm i{font-style:normal;display:inline-block;color:#fff;transform-origin:50% 100%;
+  text-shadow:0 0 2px #000,0 1px 2px #000,0 0 6px rgba(0,0,0,.6);
+  animation:wmWave 4s ease-in-out infinite;animation-delay:calc(1s + var(--i) * .09s)}
+.wm i.k{color:#f5b400}.wm i.t{color:#2fa84f}
+/* هەر پیتەک ب ڕێزبەندی مەزن دبیت و بلند دبیت، پاشی دزڤڕیت؛ دوماهیێ هەمی وەک ئێک */
+@keyframes wmWave{0%,30%,100%{transform:none}8%{transform:translateY(-35%) scale(1.35)}16%{transform:translateY(4%) scale(.92)}22%{transform:none}}
+@keyframes wmIn{0%{opacity:0;transform:translateX(40%)}100%{opacity:.9;transform:none}}
+.wm.again,.wm.again i{animation:none}
+body.tvmode .wm,#playerWrap:fullscreen .wm{font-size:clamp(12px,1.6vw,26px)}
+@media (prefers-reduced-motion: reduce){.wm,.wm i{animation:none}}
 #msg{padding:10px 12px;font-size:13px;color:#ffd27a;background:#2a2412;line-height:1.7}
 
 /* ---------- content ---------- */
@@ -202,6 +201,7 @@ body.tvmode .tv-ov{display:block;position:fixed;inset:0;z-index:55;pointer-event
 .tv-ov.hidden .tv-panel{opacity:0;pointer-events:none}
 .tv-panel{position:absolute;top:5vh;bottom:5vh;right:3vw;width:min(66vw,1000px);display:flex;flex-direction:column;gap:6px;pointer-events:auto;transition:opacity .25s}
 .tv-top{display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(8,10,14,.86);border:1px solid rgba(255,255,255,.12);padding:6px 14px;font-size:clamp(13px,2.3vh,24px);font-weight:700}
+.tv-exit{font-family:inherit;font-size:.7em;font-weight:800;padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:#d10f1f;color:#fff;cursor:pointer}
 .tv-cols{flex:1;display:flex;gap:6px;min-height:0}
 .tv-list{background:rgba(8,10,14,.84);border:1px solid rgba(255,255,255,.12);overflow-y:auto;scrollbar-width:none}
 .tv-list::-webkit-scrollbar{display:none}
@@ -275,7 +275,7 @@ body.tvmode .tv-ov{display:block;position:fixed;inset:0;z-index:55;pointer-event
 <!-- ============ player ============ -->
 <div id="playerWrap">
   <video id="video" controls playsinline autoplay autopictureinpicture></video>
-  <div class="wm" id="wm" data-t="AGKurdtv" aria-hidden="true">AG<span class="k">Kurd</span><span class="t">tv</span></div>
+  <div class="wm" id="wm" aria-hidden="true"><i class="w" style="--i:0">A</i><i class="w" style="--i:1">G</i><i class="k" style="--i:2">K</i><i class="k" style="--i:3">u</i><i class="k" style="--i:4">r</i><i class="k" style="--i:5">d</i><i class="t" style="--i:6">t</i><i class="t" style="--i:7">v</i></div>
   <div class="pbar">
     <span class="live">LIVE</span><b id="nowName"></b>
     <button class="pbtn" id="prevBtn" title="کەنالێ بەری">▶</button>
@@ -307,7 +307,7 @@ body.tvmode .tv-ov{display:block;position:fixed;inset:0;z-index:55;pointer-event
 <nav class="bottom" id="nav"></nav>
 
 <div id="tvov" class="tv-ov"><div class="tv-panel">
-  <div class="tv-top"><span class="brand" style="font-size:inherit">AG<span class="k">Kurd</span><span class="t">tv</span></span><span id="tvTitle"></span><span style="display:flex;gap:14px;align-items:center"><span id="tvNow" style="color:#ffd27a;direction:ltr"></span><span id="tvClock" style="font-family:Arial;direction:ltr"></span></span></div>
+  <div class="tv-top"><span class="brand" style="font-size:inherit">AG<span class="k">Kurd</span><span class="t">tv</span></span><span id="tvTitle"></span><span style="display:flex;gap:14px;align-items:center"><button id="tvExit" class="tv-exit" title="دەرکەفتن ژ دۆخێ TV">✕ دەرکەفتن</button><span id="tvNow" style="color:#ffd27a;direction:ltr"></span><span id="tvClock" style="font-family:Arial;direction:ltr"></span></span></div>
   <div class="tv-cols"><div class="tv-list tv-g" id="tvG"></div><div class="tv-list tv-c" id="tvC"></div></div>
   <div class="tv-help">⬆️⬇️ هەلبژارتن · ➡️ گروپ · ⬅️ کەنال · OK ڤەکرن · Back ڤەشارتن · 1️⃣2️⃣ = کەنالێ 12 · 🔴 دلخواز</div>
 </div></div>
@@ -1104,6 +1104,7 @@ window.addEventListener("popstate", () => {
 document.addEventListener("click", e => {
   if (!tv.on) return;
   const g = e.target.closest("[data-tg]"), c = e.target.closest("[data-tc]");
+  if (e.target.closest("#tvExit")){ e.stopPropagation(); exitTV(); return; }
   if (g){ tv.col = "g"; if (+g.dataset.tg === tv.gi) tvOK(); else tvSetGroup(+g.dataset.tg); tvPoke(); return; }
   if (c){ tv.col = "c"; tv.ci = +c.dataset.tc; tvSel(); tvOK(); tvPoke(); return; }
   if (e.target.closest("#playerWrap") || e.target.id === "tvov"){ tv.ov ? tvHide() : tvShow(); }
