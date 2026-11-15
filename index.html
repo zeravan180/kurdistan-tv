@@ -83,6 +83,11 @@ video{width:100%;max-height:42vh;aspect-ratio:16/9;display:block;background:#000
 .wm.again,.wm.again i{animation:none}
 body.tvmode .wm,#playerWrap:fullscreen .wm{font-size:clamp(12px,1.6vw,26px)}
 @media (prefers-reduced-motion: reduce){.wm,.wm i{animation:none}}
+/* جیهازێن لاواز (TV Box): ناڤ ب سادەیی، بێ فلتەر و بێ جووڵەیا گران، دا ڤیدیۆ نەڕاوەستیت */
+body.lite .wm{filter:none;animation:none}
+body.lite .wm i{animation:none!important;background:none!important;-webkit-background-clip:border-box;background-clip:border-box;color:var(--c);text-shadow:0 1px 2px #000}
+body.lite .tv-panel,body.lite .tv-top,body.lite .tv-list,body.lite header,body.lite nav.bottom{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.lite .ch,body.lite .ch:focus-visible,body.lite .ch.kf{transition:none;box-shadow:none}
 #msg{padding:10px 12px;font-size:13px;color:#ffd27a;background:#2a2412;line-height:1.7}
 
 /* ---------- content ---------- */
@@ -629,12 +634,22 @@ function play(c, opts = {}){
   const timer = setTimeout(fail, 15000);   // ئەگەر د 15 چرکەیان دا دەست پێ نەکر
   v.onplaying = ok;
   if (window.Hls && Hls.isSupported()){
-    hls = new Hls({ maxBufferLength: 20, capLevelToPlayerSize: true, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
+    hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60, backBufferLength: 20, capLevelToPlayerSize: true, enableWorker: true, lowLatencyMode: false,
+      startLevel: -1, abrEwmaDefaultEstimate: 1500000, abrBandWidthFactor: 0.8, abrBandWidthUpFactor: 0.6,
+      liveSyncDurationCount: 4, liveMaxLatencyDurationCount: 12, nudgeMaxRetry: 8,
+      manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 3, fragLoadingMaxRetry: 5 });
     hls.on(Hls.Events.ERROR, (e, d) => {
       if (!d.fatal || token !== playToken) return;
       if (d.type === Hls.ErrorTypes.MEDIA_ERROR && recovered++ < 2) return hls.recoverMediaError();
       if (d.type === Hls.ErrorTypes.NETWORK_ERROR && d.details !== "manifestLoadError" && d.details !== "manifestParsingError" && recovered++ < 2) return hls.startLoad();
       fail();
+    });
+    hls.on(Hls.Events.MANIFEST_PARSED, (e, d) => {
+      if (store.get("lowq", false) && d.levels && d.levels.length > 1){
+        // ئینتەرنێتا لاواز: بلندترین کوالیتی ≤ 480p
+        let cap = 0; d.levels.forEach((l, i) => { if ((l.height || 0) <= 480) cap = i; });
+        hls.autoLevelCapping = cap;
+      }
     });
     hls.loadSource(c.url); hls.attachMedia(v);
   } else { v.src = c.url; v.onerror = fail; }
@@ -763,12 +778,14 @@ function openMenu(){
   modal(`<h3>⚙️ ڕێکخستن</h3>
     <p>کۆد: <b dir="ltr">${esc(code)}</b><br>پلان: <b>${plan === "premium" ? "💎 پرێمیۆم" : "بنیاتی"}</b> · هەتا ${exp ? new Date(exp).toLocaleDateString("en-GB") : "—"}</p>
     <button class="opt" data-a="tv" tabindex="0"><span class="oi">📡</span><span>دۆخێ ڕیسیڤەر (TV)<small>لیستا گروپ و کەنالان ل سەر شاشێ، وەک جیهازێ ستەلایتێ</small></span></button>
+    <button class="opt" data-a="lowq" tabindex="0"><span class="oi">📶</span><span>ئینتەرنێتا لاواز: ${store.get("lowq", false) ? "✅ چالاکە" : "❌ گرتی یە"}<small>کوالیتیا نزمتر (≤480p)، دا کەنال نەڕاوەستن</small></span></button>
     <button class="opt" data-a="kids" tabindex="0"><span class="oi">🧸</span><span>دۆخێ زارۆکان<small>ب تنێ کەنالێن زارۆکان، و دەرکەفتن ب PIN</small></span></button>
     ${plan === "premium" ? "" : `<a class="opt" href="https://wa.me/9647513578668?text=${encodeURIComponent("دڤێت پلانا AGKurdtv بکەمە پرێمیۆم")}" target="_blank" rel="noopener"><span class="oi">💎</span><span>بکە پرێمیۆم<small>فیلم، وەرزش و هەمی کەنال</small></span></a>`}
     ${Object.keys(broken).length ? `<button class="opt" data-a="unhide" tabindex="0"><span class="oi">🔄</span><span>دیسا تاقیکرنا کەنالێن ڤەشارتی<small>${Object.keys(broken).length} کەنالێن کار نەکرین هاتینە ڤەشارتن</small></span></button>` : ""}
     <a class="opt" href="https://wa.me/9647513578668" target="_blank" rel="noopener"><span class="oi">💬</span><span>پەیوەندی ب مە ڤە<small dir="ltr" style="text-align:right">0751 357 8668</small></span></a>
     <button class="opt" data-a="close" tabindex="0"><span class="oi">✕</span><span>گرتن</span></button>`, () => {
     $("mdl").querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
+      if (b.dataset.a === "lowq"){ store.set("lowq", !store.get("lowq", false)); closeModal(); if (current && current.type !== "youtube") play(current, { keepList: true }); openMenu(); return; }
       if (b.dataset.a === "tv") enterTV();
       else if (b.dataset.a === "kids") enterKidsFlow();
       else if (b.dataset.a === "unhide"){ broken = {}; store.set("broken", broken); closeModal(); renderChips(); render(); }
@@ -845,10 +862,12 @@ $("menuBtn").onclick = openMenu;
 $("kidsExitBtn").onclick = exitKidsFlow;
 
 /* ===== TV remote (D-pad) ===== */
+var LITE = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 4) <= 2;
 var isTV = /SMART-TV|SmartTV|Tizen|Web0S|webOS|NetCast|Android TV|AFT|BRAVIA|GoogleTV|CrKey|HbbTV|TV Box|AndroidTV|MiBOX|Chromecast|DTV|STB/i.test(navigator.userAgent)
   // جیهازێن ئەندرۆیدێ یێن TV (Box): بێ شاشا دەستلێدانێ، و ب ڕیمۆتێ کار دکەن
   || (/Android/i.test(navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0)
   || (window.matchMedia && matchMedia("(pointer: none)").matches);
+if (isTV || LITE) document.body.classList.add("lite");
 function focusables(){
   const root = modalOpen() ? $("mdl") : document;
   return [...root.querySelectorAll(modalOpen() ? "input,button,a.opt,a.btn" : ".ch,.ctry,.chip,.see,.nav-item,#hero,#search,.icon-btn:not(.hide),.pbtn,#msg .btn")].filter(el => el.offsetParent || el.closest("nav"));
@@ -918,6 +937,7 @@ function tvBuildGroups(){
   const rest = COUNTRY_ALL.filter(c => !COUNTRY_TOP.includes(c)).sort((a,b) => cName(a).localeCompare(cName(b)));
   [...COUNTRY_TOP, ...rest].forEach(c => gs.push({ key:"w:" + c, name: flag(c) + " " + cName(c), country: c, lock: !allowed("world"),
     get:() => channels.filter(x => x.sec === "w:" + c && tvOk(x)) }));
+  gs.push({ key:"lowq", name:"📶 ئینتەرنێتا لاواز: " + (store.get("lowq", false) ? "✅" : "❌"), action:"lowq" });
   gs.push({ key:"exit", name:"⬅️ دەرکەفتن ژ دۆخێ TV", action:"exit" });
   return gs;
 }
@@ -1011,6 +1031,8 @@ function tvOK(){
   if (tv.col === "g"){
     const g = tv.groups[tv.gi];
     if (g.action === "exit") return exitTV();
+    if (g.action === "lowq"){ store.set("lowq", !store.get("lowq", false)); tv.groups = tvBuildGroups(); tvRenderGroups(); tvSel();
+      if (current && current.type !== "youtube") play(current, { keepList: true }); return; }
     if (g.action === "activate"){ $("gate").classList.remove("off"); $("codeIn").focus(); return; }
     if (g.action === "kidsexit"){ exitKidsFlow(); return; }
     if (g.lock || !tv.list.length) return;
