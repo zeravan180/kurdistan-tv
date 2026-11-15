@@ -64,10 +64,19 @@ video{width:100%;max-height:42vh;aspect-ratio:16/9;display:block;background:#000
 .wm{position:absolute;top:16%;right:3%;z-index:4;pointer-events:none;direction:ltr;display:flex;align-items:flex-end;
   font-family:"Arial Black",Arial,Helvetica,sans-serif;font-weight:900;font-size:clamp(10px,1.5vw,22px);line-height:1;opacity:.9;
   animation:wmIn .8s cubic-bezier(.2,.8,.2,1) both}
-.wm i{font-style:normal;display:inline-block;color:#fff;transform-origin:50% 100%;
-  text-shadow:0 0 2px #000,0 1px 2px #000,0 0 6px rgba(0,0,0,.6);
-  animation:wmWave 4s ease-in-out infinite;animation-delay:calc(1s + var(--i) * .09s)}
-.wm i.k{color:#f5b400}.wm i.t{color:#2fa84f}
+.wm{filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.95)) drop-shadow(0 0 5px rgba(0,0,0,.55))}
+/* پیت وەک شیشە: ڕەنگێ بنیاتی + ڕۆناهیا شیشەیی ل نیڤا ژۆری + برسکەکا ڕۆهن کو ل سەر پیتان دبوریت */
+.wm i{font-style:normal;display:inline-block;transform-origin:50% 100%;--c:#f2f4f8;
+  color:transparent;-webkit-background-clip:text;background-clip:text;
+  background-image:
+    linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 42%,#fff 50%,rgba(255,255,255,.55) 58%,transparent 70%),
+    linear-gradient(180deg,rgba(255,255,255,.75) 0%,rgba(255,255,255,.28) 46%,rgba(255,255,255,0) 50%,rgba(0,0,0,.18) 100%),
+    linear-gradient(var(--c),var(--c));
+  background-size:400% 100%,100% 100%,100% 100%;background-position:120% 0,0 0,0 0;background-repeat:no-repeat;
+  animation:wmWave 4s ease-in-out infinite, wmGlint 4s ease-in-out infinite;
+  animation-delay:calc(1s + var(--i) * .09s), calc(2.2s + var(--i) * .06s)}
+.wm i.k{--c:#f5b400}.wm i.t{--c:#2fa84f}
+@keyframes wmGlint{0%{background-position:130% 0,0 0,0 0;filter:none}9%{filter:brightness(1.5)}20%,100%{background-position:-30% 0,0 0,0 0;filter:none}}
 /* هەر پیتەک ب ڕێزبەندی مەزن دبیت و بلند دبیت، پاشی دزڤڕیت؛ دوماهیێ هەمی وەک ئێک */
 @keyframes wmWave{0%,30%,100%{transform:none}8%{transform:translateY(-35%) scale(1.35)}16%{transform:translateY(4%) scale(.92)}22%{transform:none}}
 @keyframes wmIn{0%{opacity:0;transform:translateX(40%)}100%{opacity:.9;transform:none}}
